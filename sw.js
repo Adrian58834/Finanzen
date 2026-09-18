@@ -1,5 +1,5 @@
 /* FinanZen - Service Worker (PWA offline) */
-const VERSION = 'finanzen-v1.0.1';
+const VERSION = 'finanzen-v1.1.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -13,6 +13,7 @@ const APP_SHELL = [
   './js/app.js',
   './js/sync.js',
   './js/sync-config.js',
+  './js/vendor/supabase.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
@@ -22,8 +23,7 @@ const APP_SHELL = [
 
 const CDN_ASSETS = [
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
-  'https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  'https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css'
 ];
 
 self.addEventListener('install', event => {
