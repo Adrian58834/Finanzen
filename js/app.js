@@ -49,16 +49,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       this.updateThemeButtonUI(savedTheme);
 
-      const themeBtn = document.getElementById('theme-toggle-btn');
-      if (themeBtn) {
-        themeBtn.addEventListener('click', () => {
-          const isLight = document.body.classList.toggle('light-theme');
-          const newTheme = isLight ? 'light' : 'dark';
-          window.financialState.saveSettings({ theme: newTheme });
-          this.updateThemeButtonUI(newTheme);
-          this.showToast(`Modo ${newTheme === 'light' ? 'Claro' : 'Escuro'} ativado`, 'info');
-        });
-      }
+      ['theme-toggle-btn', 'theme-toggle-mobile-btn'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            const isLight = document.body.classList.toggle('light-theme');
+            const newTheme = isLight ? 'light' : 'dark';
+            window.financialState.saveSettings({ theme: newTheme });
+            this.updateThemeButtonUI(newTheme);
+            this.showToast(`Modo ${newTheme === 'light' ? 'Claro' : 'Escuro'} ativado`, 'info');
+          });
+        }
+      });
     },
 
     updateThemeButtonUI(theme) {
@@ -73,58 +75,141 @@ document.addEventListener('DOMContentLoaded', () => {
           text.textContent = 'Modo Claro';
         }
       }
+      const mobIcon = document.getElementById('theme-icon-mobile');
+      if (mobIcon) {
+        mobIcon.className = theme === 'light' ? 'ri-moon-line' : 'ri-sun-line';
+      }
     },
 
-    // --- Seletor de Período Global ---
+    // --- Seletor de Período Global (dropdown personalizado) ---
     setupPeriodSelector() {
       const selector = document.getElementById('global-period-select');
-      if (!selector) return;
+      const root = document.getElementById('period-selector');
+      const btn = document.getElementById('period-selector-btn');
+      const menu = document.getElementById('period-selector-menu');
+      const veil = document.getElementById('period-selector-veil');
+      if (!selector || !root || !btn) return;
 
       const date = new Date();
       const currentYear = date.getFullYear();
       const currentMonth = date.getMonth() + 1;
 
-      selector.innerHTML = '';
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      this.monthNames = monthNames;
+
+      const items = [];
 
       // Opção Todos
-      const optAll = document.createElement('option');
-      optAll.value = 'all';
-      optAll.textContent = 'Todos os períodos';
-      selector.appendChild(optAll);
+      items.push({ value: 'all', label: 'Todos os períodos', group: 'geral' });
 
       // Opções de Ano (para o gráfico de fluxo)
       for (let yi = 2; yi >= 0; yi--) {
-        const optYear = document.createElement('option');
-        optYear.value = String(currentYear - yi);
-        optYear.textContent = `Ano ${currentYear - yi}`;
-        selector.appendChild(optYear);
+        items.push({ value: String(currentYear - yi), label: `Ano ${currentYear - yi}`, group: 'anos' });
       }
-
-      // Opção Mês Atual
-      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-      this.monthNames = monthNames;
 
       // 12 meses passados + 6 meses futuros (transição automática de período)
       for (let offset = -12; offset <= 6; offset++) {
         const d = new Date(currentYear, currentMonth - 1 + offset, 1);
         const y = d.getFullYear();
         const m = d.getMonth() + 1;
-        const val = `${y}-${String(m).padStart(2, '0')}`;
-        const opt = document.createElement('option');
-        opt.value = val;
-        opt.textContent = `${monthNames[m - 1]} de ${y}`;
-        if (offset === 0) {
-          opt.selected = true;
-          this.selectedPeriod = val;
-        }
-        selector.appendChild(opt);
+        items.push({ value: `${y}-${String(m).padStart(2, '0')}`, label: `${monthNames[m - 1]} de ${y}`, group: 'meses' });
       }
 
+      // Preenche o select nativo (mantido internamente para compatibilidade)
+      selector.innerHTML = '';
+      items.forEach(it => {
+        const opt = document.createElement('option');
+        opt.value = it.value;
+        opt.textContent = it.label;
+        selector.appendChild(opt);
+      });
+
+      // Período padrão: mês atual
+      const defaultVal = items.find(it => {
+        const parts = String(it.value).split('-');
+        return parts.length === 2 && Number(parts[0]) === currentYear && Number(parts[1]) === currentMonth;
+      });
+      selector.value = (defaultVal && defaultVal.value) || (items[0] && items[0].value);
+      this.selectedPeriod = selector.value;
+
+      // Monta o dropdown
+      let lastGroup = '';
+      items.forEach(it => {
+        if (it.group !== lastGroup) {
+          const groupEl = document.createElement('div');
+          groupEl.className = 'period-menu-group';
+          groupEl.textContent = it.group === 'geral' ? 'Geral' : (it.group === 'anos' ? 'Anos' : 'Meses');
+          menu.appendChild(groupEl);
+          lastGroup = it.group;
+        }
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'period-menu-item';
+        item.dataset.value = it.value;
+        item.setAttribute('role', 'option');
+        item.innerHTML = `<span>${it.label}</span><i class="ri-check-line check" aria-hidden="true"></i>`;
+        menu.appendChild(item);
+      });
+
+      // Abre/fecha o dropdown
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = root.classList.toggle('open');
+        btn.setAttribute('aria-expanded', String(isOpen));
+      });
+
+      veil.addEventListener('click', () => this.closePeriodMenu());
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') this.closePeriodMenu();
+      });
+
+      // Seleção pelo menu
+      menu.addEventListener('click', (e) => {
+        const item = e.target.closest('.period-menu-item');
+        if (!item) return;
+        const val = item.dataset.value;
+        if (selector.value !== val) {
+          selector.value = val;
+          selector.dispatchEvent(new Event('change'));
+        }
+        this.closePeriodMenu();
+      });
+
+      // Mudança de período (menu ou select nativo)
       selector.addEventListener('change', (e) => {
         this.selectedPeriod = e.target.value;
         this.materializeFixedForPeriod(this.selectedPeriod);
         this.renderAll();
+        this.updatePeriodSelectorUi();
       });
+
+      this.updatePeriodSelectorUi();
+    },
+
+    closePeriodMenu() {
+      const root = document.getElementById('period-selector');
+      if (!root) return;
+      root.classList.remove('open');
+      const btn = document.getElementById('period-selector-btn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    },
+
+    updatePeriodSelectorUi() {
+      const labelEl = document.getElementById('period-selector-label');
+      const menu = document.getElementById('period-selector-menu');
+      if (labelEl) labelEl.textContent = this.shortPeriodLabel(this.selectedPeriod);
+      const items = menu ? menu.querySelectorAll('.period-menu-item') : [];
+      items.forEach(b => b.classList.toggle('active', b.dataset.value === String(this.selectedPeriod)));
+    },
+
+    shortPeriodLabel(value) {
+      if (!value || value === 'all') return 'Todos os períodos';
+      if (/^\d{4}$/.test(String(value))) return String(value);
+      const [y, m] = String(value).split('-').map(Number);
+      const names = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      if (!y || !m) return String(value);
+      return `${names[m - 1]} ${y}`;
     },
 
     periodLabel(period) {

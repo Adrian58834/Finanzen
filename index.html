@@ -111,15 +111,25 @@
         </div>
 
         <div class="header-right">
+          <button id="theme-toggle-mobile-btn" class="theme-toggle-mobile-btn" type="button" aria-label="Alternar tema claro/escuro" title="Alternar tema claro/escuro">
+            <i id="theme-icon-mobile" class="ri-sun-line"></i>
+          </button>
+
           <button id="due-bell-btn" class="due-bell-btn" type="button" aria-label="Vencimentos e lembretes" title="Vencimentos e lembretes">
             <i class="ri-notification-3-line"></i>
             <span id="due-bell-badge" class="due-bell-badge" style="display: none;">0</span>
           </button>
 
-          <!-- Filtro Global de Mês -->
-          <div class="period-selector">
-            <i class="ri-calendar-line" style="color: var(--text-muted); font-size: 0.9rem;"></i>
-            <select id="global-period-select" aria-label="Selecionar período"></select>
+          <!-- Filtro Global de Período -->
+          <div class="period-selector" id="period-selector">
+            <button type="button" id="period-selector-btn" class="period-selector-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Selecionar período">
+              <i class="ri-calendar-line period-selector-icon" aria-hidden="true"></i>
+              <span id="period-selector-label">Todos os períodos</span>
+              <i class="ri-arrow-down-s-line period-selector-chevron" aria-hidden="true"></i>
+            </button>
+            <select id="global-period-select" class="period-selector-native" aria-label="Selecionar período" tabindex="-1"></select>
+            <div id="period-selector-veil" class="period-selector-veil"></div>
+            <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
           </div>
 
           <button class="btn btn-primary open-tx-modal-btn" data-type="expense">
