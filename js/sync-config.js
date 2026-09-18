@@ -9,7 +9,7 @@
  * sincronização fica desativada (nenhum dado sai do dispositivo).
  */
 window.FINANZEN_SUPABASE = {
-  url: '',      // ex: 'https://rodhpdsfkdkayxegqfah.supabase.co'
-  anonKey: '',  // ex: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZGhwZHNma2RrYXl4ZWdxZmFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2ODU1MDUsImV4cCI6MjEwNTI2MTUwNX0.WajR2uV5Z2PmYPgk3Gx2cNB55X8csUbRY0MH7yMQBkE'
+  url: '',      // 'https://rodhpdsfkdkayxegqfah.supabase.co'
+  anonKey: '',  // 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZGhwZHNma2RrYXl4ZWdxZmFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2ODU1MDUsImV4cCI6MjEwNTI2MTUwNX0.WajR2uV5Z2PmYPgk3Gx2cNB55X8csUbRY0MH7yMQBkE'
   table: 'finanzen_data'
 };
