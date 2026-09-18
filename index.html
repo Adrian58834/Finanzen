@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>FinanZen - Sistema Inteligente de Gestão Financeira Pessoal</title>
   <meta name="description" content="Controle completo e elegante das suas finanças pessoais: despesas, receitas, orçamentos e metas de economia no seu navegador.">
 
@@ -250,7 +250,7 @@
               </div>
             </div>
 
-            <div class="section-card">
+            <div class="section-card account-balance-card">
               <div class="section-header">
                 <h3 class="section-title">Patrimônio por Conta</h3>
                 <span class="status-pill status-paid">Valor líquido do período</span>
@@ -659,6 +659,34 @@
       </main>
     </div>
   </div>
+
+  <!-- Navegação Inferior (Mobile) -->
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <a href="#dashboard" class="bottom-nav-item active" data-tab="dashboard">
+      <i class="ri-dashboard-3-line"></i>
+      <span>Painel</span>
+    </a>
+    <a href="#transactions" class="bottom-nav-item" data-tab="transactions">
+      <i class="ri-exchange-dollar-line"></i>
+      <span>Transações</span>
+    </a>
+    <a href="#budgets" class="bottom-nav-item" data-tab="budgets">
+      <i class="ri-compasses-2-line"></i>
+      <span>Orçamentos</span>
+    </a>
+    <a href="#goals" class="bottom-nav-item" data-tab="goals">
+      <i class="ri-flag-line"></i>
+      <span>Metas</span>
+    </a>
+    <a href="#reports" class="bottom-nav-item" data-tab="reports">
+      <i class="ri-pie-chart-2-line"></i>
+      <span>Relatórios</span>
+    </a>
+    <a href="#settings" class="bottom-nav-item" data-tab="settings">
+      <i class="ri-settings-4-line"></i>
+      <span>Ajustes</span>
+    </a>
+  </nav>
 
   <!-- Painel de Vencimentos -->
   <div id="due-panel-overlay" class="due-panel-overlay"></div>

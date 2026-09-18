@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Navegação entre Abas ---
     setupNavigation() {
-      const navItems = document.querySelectorAll('.nav-item');
+      const navItems = document.querySelectorAll('.nav-item, .bottom-nav-item');
       navItems.forEach(item => {
         item.addEventListener('click', (e) => {
           e.preventDefault();
@@ -818,20 +818,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
           <tr>
-            <td>
+            <td data-label="Categoria">
               <span class="tx-category-badge">
                 <i class="${cat.icon}" style="color: ${cat.color};"></i>
                 ${this.escapeHtml(cat.name)}
               </span>
             </td>
-            <td>
-              <strong>${this.escapeHtml(tx.description)}</strong>
-              ${tx.fixed ? '<span class="fixed-badge" title="Lançamento fixo gerado automaticamente"><i class="ri-refresh-line"></i> Fixado</span>' : ''}
-              ${isTransfer ? `<div style="font-size: 0.76rem; color: var(--text-muted);">${this.escapeHtml(tx.account)} → ${this.escapeHtml(tx.toAccount || '?')}${tx.fee ? ` • taxa ${this.formatCurrency(tx.fee)}` : ''}</div>` : ''}
+            <td data-label="Descrição">
+              <div class="cell">
+                <strong>${this.escapeHtml(tx.description)}</strong>
+                ${tx.fixed ? '<span class="fixed-badge" title="Lançamento fixo gerado automaticamente"><i class="ri-refresh-line"></i> Fixado</span>' : ''}
+                ${isTransfer ? `<div style="font-size: 0.76rem; color: var(--text-muted);">${this.escapeHtml(tx.account)} → ${this.escapeHtml(tx.toAccount || '?')}${tx.fee ? ` • taxa ${this.formatCurrency(tx.fee)}` : ''}</div>` : ''}
+              </div>
             </td>
-            <td>${this.formatDate(tx.date)}</td>
-            <td><span class="status-pill ${statusClass}">${statusLabel}</span>${this.dueBadgeHTML(tx)}</td>
-            <td class="tx-amount ${amtClass}">${sign}${this.formatCurrency(tx.amount)}</td>
+            <td data-label="Data">${this.formatDate(tx.date)}</td>
+            <td data-label="Status">
+              <div class="cell">
+                <span class="status-pill ${statusClass}">${statusLabel}</span>${this.dueBadgeHTML(tx)}
+              </div>
+            </td>
+            <td data-label="Valor" class="tx-amount ${amtClass}">${sign}${this.formatCurrency(tx.amount)}</td>
           </tr>
         `;
       }).join('');
@@ -949,21 +955,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
           <tr>
-            <td>${this.formatDate(tx.date)}</td>
-            <td>
-              <strong>${this.escapeHtml(tx.description)}</strong>
-              ${tx.fixed ? '<span class="fixed-badge" title="Lançamento fixo gerado automaticamente"><i class="ri-refresh-line"></i> Fixado</span>' : ''}
-              ${tx.notes ? `<div style="font-size: 0.78rem; color: var(--text-muted);">${this.escapeHtml(tx.notes)}</div>` : ''}
+            <td data-label="Data">${this.formatDate(tx.date)}</td>
+            <td data-label="Descrição">
+              <div class="cell">
+                <strong>${this.escapeHtml(tx.description)}</strong>
+                ${tx.fixed ? '<span class="fixed-badge" title="Lançamento fixo gerado automaticamente"><i class="ri-refresh-line"></i> Fixado</span>' : ''}
+                ${tx.notes ? `<div style="font-size: 0.78rem; color: var(--text-muted);">${this.escapeHtml(tx.notes)}</div>` : ''}
+              </div>
             </td>
-            <td>
+            <td data-label="Categoria">
               <span class="tx-category-badge">
                 <i class="${cat.icon}" style="color: ${cat.color};"></i>
                 ${this.escapeHtml(cat.name)}
               </span>
             </td>
-            <td><small style="color: var(--text-secondary);">${this.escapeHtml(accountLabel)}</small></td>
-            <td><span class="status-pill ${statusClass}">${statusLabel}</span>${this.dueBadgeHTML(tx)}</td>
-            <td class="tx-amount ${amtClass}">${sign}${this.formatCurrency(tx.amount)}</td>
+            <td data-label="Conta">
+              <div class="cell"><small style="color: var(--text-secondary);">${this.escapeHtml(accountLabel)}</small></div>
+            </td>
+            <td data-label="Status">
+              <div class="cell">
+                <span class="status-pill ${statusClass}">${statusLabel}</span>${this.dueBadgeHTML(tx)}
+              </div>
+            </td>
+            <td data-label="Valor" class="tx-amount ${amtClass}">${sign}${this.formatCurrency(tx.amount)}</td>
             <td class="actions-cell">
               <button class="action-btn edit-tx" data-id="${tx.id}" title="Editar Transação">
                 <i class="ri-edit-line"></i>

@@ -2286,3 +2286,326 @@ body.light-theme .toast {
     min-width: 100%;
   }
 }
+
+/* ================= NAVEGAÇÃO INFERIOR (MOBILE) =================
+   Barra de navegação fixa no rodapé, estilo app de banco.
+   Visível apenas em telas pequenas. ================= */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 95;
+    background: rgba(17, 24, 39, 0.88);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -8px 30px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 var(--surface-highlight);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  body.light-theme .bottom-nav {
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 2px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--transition-fast);
+  }
+
+  .bottom-nav-item i {
+    font-size: 1.3rem;
+    line-height: 1;
+    transition: transform var(--transition-fast);
+  }
+
+  .bottom-nav-item.active {
+    color: var(--accent-primary);
+  }
+
+  .bottom-nav-item.active i {
+    transform: translateY(-1px);
+    filter: drop-shadow(0 0 10px var(--accent-glow));
+  }
+
+  /* Evita que o conteúdo fique escondido atrás da barra inferior */
+  .content-area {
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+
+  /* ===== Cabeçalho simplificado no celular ===== */
+  .top-header {
+    padding: 0 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .header-left {
+    flex: 0 0 auto;
+  }
+
+  .page-title-group p {
+    display: none;
+  }
+
+  .page-title-group h1 {
+    font-size: 1.12rem;
+  }
+
+  .header-right {
+    gap: 8px;
+  }
+
+  /* Botões do cabeçalho viram ícones compactos */
+  .header-right .open-transfer-modal-btn,
+  .header-right .period-selector i {
+    display: none;
+  }
+
+  .header-right .btn {
+    padding: 9px;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .header-right .btn span {
+    display: none;
+  }
+
+  .period-selector {
+    padding: 4px 6px;
+  }
+
+  .period-selector select {
+    font-size: 0.8rem;
+    max-width: 108px;
+  }
+
+  .due-bell-btn {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  /* Toasts flutuam acima da barra de navegação */
+  .toast-container {
+    left: 12px;
+    right: 12px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    align-items: stretch;
+  }
+
+  .toast {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* ===== Painel Geral mais limpo no celular ===== */
+  .account-balance-card {
+    display: none;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .metric-card {
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .metric-header {
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .metric-title {
+    font-size: 0.72rem;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .metric-icon-badge {
+    width: 30px;
+    height: 30px;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+
+  .metric-value {
+    font-size: 1.05rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    word-break: break-word;
+  }
+
+  .metric-footer {
+    font-size: 0.68rem;
+  }
+
+  .metric-footer .trend-badge {
+    font-size: 0.62rem;
+  }
+
+  .content-area {
+    gap: 22px;
+  }
+
+  .charts-grid,
+  .dashboard-bottom-grid {
+    margin-top: 4px !important;
+  }
+
+  .section-card,
+  .chart-card {
+    padding: 18px;
+  }
+
+  .section-header,
+  .chart-header {
+    margin-bottom: 14px;
+  }
+
+  .chart-canvas-container {
+    min-height: 220px;
+  }
+
+  .chart-title,
+  .section-title {
+    font-size: 1rem;
+  }
+
+  /* ===== Transações viram cartões no celular ===== */
+  .table-responsive table.custom-table,
+  .table-responsive table.custom-table tbody,
+  .table-responsive table.custom-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .table-responsive table.custom-table thead {
+    display: none;
+  }
+
+  .table-responsive table.custom-table tr {
+    margin-bottom: 14px;
+    padding: 14px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .table-responsive table.custom-table td {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 5px 0;
+    border: none;
+    min-width: 0;
+  }
+
+  .table-responsive table.custom-table td::before {
+    content: attr(data-label);
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+  }
+
+  .table-responsive table.custom-table td .cell {
+    display: block;
+    min-width: 0;
+    word-break: break-word;
+  }
+
+  .table-responsive table.custom-table tr:hover td {
+    background: transparent;
+  }
+
+  .table-responsive table.custom-table td.tx-amount {
+    grid-template-columns: 1fr auto;
+    text-align: right;
+  }
+
+  .table-responsive table.custom-table td.actions-cell {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .table-responsive table.custom-table td.actions-cell::before {
+    content: none;
+  }
+
+  .table-responsive table.custom-table td.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 28px 8px;
+    border: none;
+    gap: 10px;
+  }
+
+  /* Barra de filtros organizada no celular */
+  .filters-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .search-input-wrapper {
+    grid-column: 1 / -1;
+  }
+
+  .filters-group .custom-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filters-bar > div:last-child {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+
+  .filters-bar > div:last-child .btn {
+    width: 100%;
+    padding: 10px 6px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Telas muito estreitas: esconde o título do cabeçalho */
+@media (max-width: 420px) {
+  .page-title-group {
+    display: none;
+  }
+}
