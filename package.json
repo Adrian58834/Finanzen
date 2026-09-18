@@ -1,0 +1,10 @@
+{
+  "name": "finanzen",
+  "version": "1.1.0",
+  "private": true,
+  "description": "FinanZen - Sistema completo de gestão financeira pessoal (local, sem servidor)",
+  "scripts": {
+    "test": "node --test tests/state.test.js tests/sync.test.js tests/integrity.test.js",
+    "check": "node --check js/state.js && node --check js/charts.js && node --check js/app.js && node --check js/sync.js && node --check js/sync-config.js && node --check sw.js"
+  }
+}

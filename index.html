@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinanZen - Sistema Inteligente de Gestão Financeira Pessoal</title>
+  <meta name="description" content="Controle completo e elegante das suas finanças pessoais: despesas, receitas, orçamentos e metas de economia no seu navegador.">
+
+  <!-- Fontes do Google: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Ícones Modernos Remix Icon -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+  <!-- Estilos da Aplicação -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="color-scheme" content="dark light">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinanZen">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Barra Lateral (Sidebar) -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="ri-wallet-3-line"></i>
+        </div>
+        <div>
+          <span class="brand-title">FinanZen</span>
+          <span class="brand-badge">Pro</span>
+        </div>
+      </div>
+
+      <ul class="nav-menu">
+        <li>
+          <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+            <i class="ri-dashboard-3-line"></i>
+            <span>Painel Geral</span>
+          </a>
+        </li>
+        <li>
+          <a href="#transactions" class="nav-item" data-tab="transactions">
+            <i class="ri-exchange-dollar-line"></i>
+            <span>Transações</span>
+          </a>
+        </li>
+        <li>
+          <a href="#budgets" class="nav-item" data-tab="budgets">
+            <i class="ri-compasses-2-line"></i>
+            <span>Orçamentos</span>
+          </a>
+        </li>
+        <li>
+          <a href="#goals" class="nav-item" data-tab="goals">
+            <i class="ri-flag-line"></i>
+            <span>Metas & Cofrinhos</span>
+          </a>
+        </li>
+        <li>
+          <a href="#reports" class="nav-item" data-tab="reports">
+            <i class="ri-pie-chart-2-line"></i>
+            <span>Relatórios</span>
+          </a>
+        </li>
+        <li>
+          <a href="#settings" class="nav-item" data-tab="settings">
+            <i class="ri-settings-4-line"></i>
+            <span>Backup & Dados</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <button id="theme-toggle-btn" class="theme-toggle-btn" type="button">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <i id="theme-icon" class="ri-sun-line"></i>
+            <span id="theme-text">Modo Claro</span>
+          </span>
+          <i class="ri-arrow-right-s-line"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Área Principal -->
+    <div class="main-wrapper">
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <button id="mobile-menu-btn" class="mobile-menu-btn" type="button" aria-label="Abrir Menu">
+            <i class="ri-menu-line"></i>
+          </button>
+          <div class="page-title-group">
+            <h1 id="header-page-title">Painel Geral</h1>
+            <p id="header-page-subtitle">Visão ampla do seu patrimônio e fluxo de caixa</p>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <button id="due-bell-btn" class="due-bell-btn" type="button" aria-label="Vencimentos e lembretes" title="Vencimentos e lembretes">
+            <i class="ri-notification-3-line"></i>
+            <span id="due-bell-badge" class="due-bell-badge" style="display: none;">0</span>
+          </button>
+
+          <!-- Filtro Global de Mês -->
+          <div class="period-selector">
+            <i class="ri-calendar-line" style="color: var(--text-muted); font-size: 0.9rem;"></i>
+            <select id="global-period-select" aria-label="Selecionar período"></select>
+          </div>
+
+          <button class="btn btn-primary open-tx-modal-btn" data-type="expense">
+            <i class="ri-add-line"></i>
+            <span>Novo Lançamento</span>
+          </button>
+
+          <button class="btn btn-secondary open-transfer-modal-btn">
+            <i class="ri-swap-box-line"></i>
+            <span>Transferir</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Conteúdo das Abas -->
+      <main class="content-area">
+
+        <!-- ================= ABA 1: DASHBOARD ================= -->
+        <section id="tab-dashboard" class="tab-content active">
+          <!-- Alerta de Vencimentos -->
+          <div id="dashboard-due-alert" class="due-alert" style="display: none;"></div>
+
+          <!-- Grid de Métricas Principais (KPIs) -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Saldo Líquido</span>
+                <div class="metric-icon-badge balance-badge">
+                  <i class="ri-bank-card-line"></i>
+                </div>
+              </div>
+              <div id="metric-total-balance" class="metric-value">R$ 0,00</div>
+              <div class="metric-footer">
+                <span class="trend-badge trend-up"><i class="ri-arrow-up-line"></i> Atualizado</span>
+                <span>Saldo consolidado</span>
+              </div>
+            </div>
+
+            <div class="metric-card income-card">
+              <div class="metric-header">
+                <span class="metric-title">Total de Receitas</span>
+                <div class="metric-icon-badge income-badge">
+                  <i class="ri-arrow-down-circle-line"></i>
+                </div>
+              </div>
+              <div id="metric-total-income" class="metric-value" style="color: var(--income);">R$ 0,00</div>
+              <div class="metric-footer">
+                <span style="color: var(--income); font-weight: 600;">Entradas no período</span>
+              </div>
+            </div>
+
+            <div class="metric-card expense-card">
+              <div class="metric-header">
+                <span class="metric-title">Total de Despesas</span>
+                <div class="metric-icon-badge expense-badge">
+                  <i class="ri-arrow-up-circle-line"></i>
+                </div>
+              </div>
+              <div id="metric-total-expense" class="metric-value" style="color: var(--expense);">R$ 0,00</div>
+              <div class="metric-footer">
+                <span id="metric-pending-expense" style="color: var(--text-muted); font-size: 0.78rem;"></span>
+              </div>
+            </div>
+
+            <div class="metric-card savings-card">
+              <div class="metric-header">
+                <span class="metric-title">Taxa de Poupança</span>
+                <div class="metric-icon-badge savings-badge">
+                  <i class="ri-percent-line"></i>
+                </div>
+              </div>
+              <div id="metric-savings-rate" class="metric-value" style="color: var(--info);">0%</div>
+              <div class="metric-footer">
+                <span style="color: var(--text-secondary);">Porcentagem poupada</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Seção de Gráficos -->
+          <div class="charts-grid" style="margin-top: 24px;">
+            <div class="chart-card">
+              <div class="chart-header">
+                <div>
+                  <h3 class="chart-title">Fluxo de Caixa Mensal</h3>
+                  <p class="chart-subtitle">Comparativo de Receitas vs Despesas ao longo do ano</p>
+                </div>
+              </div>
+              <div class="chart-canvas-container">
+                <canvas id="flowCashChart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <div>
+                  <h3 class="chart-title">Despesas por Categoria</h3>
+                  <p class="chart-subtitle">Onde o seu dinheiro está sendo investido</p>
+                </div>
+              </div>
+              <div class="chart-canvas-container" style="display: flex; align-items: center; justify-content: center;">
+                <canvas id="categoryExpenseChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lançamentos Recentes + Saldo por Conta -->
+          <div class="dashboard-bottom-grid" style="margin-top: 24px;">
+            <div class="section-card">
+              <div class="section-header">
+                <h3 class="section-title">Últimas Transações do Período</h3>
+                <a href="#transactions" class="btn btn-secondary btn-sm" onclick="document.querySelector('[data-tab=transactions]').click();">
+                  Ver Todas <i class="ri-arrow-right-line"></i>
+                </a>
+              </div>
+              <div class="table-responsive">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Categoria</th>
+                      <th>Descrição</th>
+                      <th>Data</th>
+                      <th>Status</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dashboard-recent-transactions"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <div class="section-header">
+                <h3 class="section-title">Patrimônio por Conta</h3>
+                <span class="status-pill status-paid">Valor líquido do período</span>
+              </div>
+              <div id="account-balance-container"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= ABA 2: TRANSAÇÕES ================= -->
+        <section id="tab-transactions" class="tab-content">
+          <!-- Barra de Filtros e Busca -->
+          <div class="filters-bar">
+            <div class="filters-group">
+              <div class="search-input-wrapper">
+                <i class="ri-search-line"></i>
+                <input type="text" id="tx-search-input" placeholder="Buscar por descrição, nota...">
+              </div>
+
+              <select id="tx-type-filter" class="custom-select">
+                <option value="all">Todos os Tipos</option>
+                <option value="income">Apenas Receitas (+)</option>
+                <option value="expense">Apenas Despesas (-)</option>
+                <option value="transfer">Apenas Transferências (↔)</option>
+              </select>
+
+              <select id="tx-category-filter" class="custom-select">
+                <option value="all">Todas as Categorias</option>
+              </select>
+
+              <select id="tx-status-filter" class="custom-select">
+                <option value="all">Todos os Status</option>
+                <option value="paid">Pago / Concluído</option>
+                <option value="pending">Pendente / A Pagar</option>
+              </select>
+
+              <select id="tx-account-filter" class="custom-select">
+                <option value="all">Todas as Contas</option>
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-income open-tx-modal-btn" data-type="income">
+                <i class="ri-add-line"></i> Receita
+              </button>
+              <button class="btn btn-expense open-tx-modal-btn" data-type="expense">
+                <i class="ri-subtract-line"></i> Despesa
+              </button>
+              <button class="btn btn-secondary open-transfer-modal-btn">
+                <i class="ri-swap-box-line"></i> Transferir
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabela de Todas as Transações -->
+          <div class="section-card">
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Conta / Forma</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="transactions-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= ABA 3: ORÇAMENTOS ================= -->
+        <section id="tab-budgets" class="tab-content">
+          <div class="section-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h3 style="font-size: 1.15rem; font-weight: 700;">Planejamento Orçamentário</h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);">Defina um teto máximo de gastos por categoria no mês para manter suas contas no azul.</p>
+            </div>
+            <button id="open-budget-modal-btn" class="btn btn-primary">
+              <i class="ri-add-line"></i> Definir Orçamento
+            </button>
+          </div>
+
+          <div id="budgets-grid-container" class="budgets-grid"></div>
+        </section>
+
+        <!-- ================= ABA 4: METAS E COFRINHOS ================= -->
+        <section id="tab-goals" class="tab-content">
+          <div class="section-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h3 style="font-size: 1.15rem; font-weight: 700;">Objetivos & Cofrinhos Financeiros</h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);">Separe dinheiro para seus sonhos: viagens, reserva de emergência, novos bens ou aposentadoria.</p>
+            </div>
+            <button id="open-goal-modal-btn" class="btn btn-primary">
+              <i class="ri-add-line"></i> Nova Meta
+            </button>
+          </div>
+
+          <div id="goals-grid-container" class="goals-grid"></div>
+        </section>
+
+        <!-- ================= ABA 5: RELATÓRIOS ================= -->
+        <section id="tab-reports" class="tab-content">
+          <!-- Barra de Ações do Relatório -->
+          <div class="report-toolbar section-card no-print">
+            <div class="report-toolbar-info">
+              <span class="settings-card-icon"><i class="ri-file-chart-line"></i></span>
+              <div>
+                <strong>Relatório Financeiro</strong>
+                <span id="report-period-label">Período atual</span>
+              </div>
+            </div>
+            <div class="report-toolbar-actions">
+              <button id="btn-report-share" class="btn btn-primary" type="button">
+                <i class="ri-share-line"></i> Compartilhar
+              </button>
+              <button id="btn-report-pdf" class="btn btn-secondary" type="button">
+                <i class="ri-file-pdf-2-line"></i> PDF
+              </button>
+              <button id="btn-report-csv" class="btn btn-secondary" type="button">
+                <i class="ri-file-excel-2-line"></i> CSV
+              </button>
+              <button id="btn-report-copy" class="btn btn-secondary" type="button">
+                <i class="ri-clipboard-line"></i> Copiar
+              </button>
+            </div>
+          </div>
+
+          <!-- Resumo do Período -->
+          <div class="metrics-grid" style="margin-top: 24px;">
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Receitas do Período</span>
+                <div class="metric-icon-badge income-badge">
+                  <i class="ri-arrow-down-circle-line"></i>
+                </div>
+              </div>
+              <div id="report-summary-income" class="metric-value" style="color: var(--income);">R$ 0,00</div>
+              <div class="metric-footer">
+                <span>Entradas no período</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Despesas do Período</span>
+                <div class="metric-icon-badge expense-badge">
+                  <i class="ri-arrow-up-circle-line"></i>
+                </div>
+              </div>
+              <div id="report-summary-expense" class="metric-value" style="color: var(--expense);">R$ 0,00</div>
+              <div class="metric-footer">
+                <span>Saídas no período</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Resultado do Período</span>
+                <div class="metric-icon-badge balance-badge">
+                  <i class="ri-bank-card-line"></i>
+                </div>
+              </div>
+              <div id="report-summary-balance" class="metric-value">R$ 0,00</div>
+              <div class="metric-footer">
+                <span>Receitas - Despesas</span>
+              </div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-title">Maior Categoria de Gasto</span>
+                <div class="metric-icon-badge savings-badge">
+                  <i class="ri-fire-line"></i>
+                </div>
+              </div>
+              <div id="report-summary-topcat" class="metric-value" style="font-size: 1.15rem;">—</div>
+              <div class="metric-footer">
+                <span id="report-summary-topcat-detail" style="font-size: 0.78rem; color: var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="charts-grid" style="margin-top: 24px;">
+            <div class="section-card">
+              <h3 class="section-title" style="margin-bottom: 16px;">Top 5 Maiores Despesas do Período</h3>
+              <div id="report-top-expenses"></div>
+            </div>
+
+            <div class="section-card">
+              <h3 class="section-title" style="margin-bottom: 16px;">Despesas Pendentes a Pagar</h3>
+              <div id="report-pending-expenses"></div>
+            </div>
+          </div>
+
+          <div class="section-card" style="margin-top: 24px;">
+            <h3 class="section-title" style="margin-bottom: 16px;">Dicas de Saúde Financeira</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+              <div style="background: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-md); border-left: 4px solid var(--income);">
+                <strong style="display: block; font-size: 0.9rem; margin-bottom: 4px;">Regra dos 50/30/20</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary);">Dedique 50% de seus rendimentos a gastos essenciais, 30% a desejos pessoais e ao menos 20% para suas metas e investimentos.</p>
+              </div>
+              <div style="background: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-md); border-left: 4px solid #06b6d4;">
+                <strong style="display: block; font-size: 0.9rem; margin-bottom: 4px;">Reserva de Emergência Primeiro</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary);">Antes de investimentos arriscados, acumule de 3 a 6 meses do seu custo de vida em investimentos líquidos de renda fixa.</p>
+              </div>
+              <div style="background: var(--bg-tertiary); padding: 14px; border-radius: var(--radius-md); border-left: 4px solid var(--warning);">
+                <strong style="display: block; font-size: 0.9rem; margin-bottom: 4px;">Pague-se Primeiro</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary);">Assim que receber, transfira imediatamente sua meta de poupança para outro lugar antes de gastar o restante. Automatize esse aporte.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= ABA 6: BACKUP & CONFIGURAÇÕES ================= -->
+        <section id="tab-settings" class="tab-content">
+          <div class="settings-wrap">
+
+            <!-- Cabeçalho -->
+            <div class="settings-hero">
+              <div class="settings-hero-icon"><i class="ri-database-2-line"></i></div>
+              <div>
+                <h3>Backup &amp; Dados</h3>
+                <p>O FinanZen funciona 100% no seu navegador com armazenamento local (<code>localStorage</code>). Seus dados financeiros não passam por servidores de terceiros e pertencem exclusivamente a você.</p>
+              </div>
+              <button class="btn btn-primary pwa-install-btn" type="button" style="display: none; margin-left: auto;">
+                <i class="ri-smartphone-line"></i> Instalar app
+              </button>
+            </div>
+
+            <!-- Resumo de Dados -->
+            <div class="section-card settings-card">
+              <div class="settings-card-head">
+                <span class="settings-card-icon"><i class="ri-bar-chart-box-line"></i></span>
+                <div>
+                  <h4>Resumo dos Dados</h4>
+                  <p>Visão rápida do que está guardado neste navegador.</p>
+                </div>
+              </div>
+              <div class="data-stats-grid">
+                <div class="data-stat">
+                  <i class="ri-exchange-line"></i>
+                  <div><span class="data-stat-value" id="data-stat-transactions">0</span><span class="data-stat-label">Lançamentos</span></div>
+                </div>
+                <div class="data-stat">
+                  <i class="ri-bank-line"></i>
+                  <div><span class="data-stat-value" id="data-stat-accounts">0</span><span class="data-stat-label">Contas</span></div>
+                </div>
+                <div class="data-stat">
+                  <i class="ri-price-tag-3-line"></i>
+                  <div><span class="data-stat-value" id="data-stat-categories">0</span><span class="data-stat-label">Categorias</span></div>
+                </div>
+                <div class="data-stat">
+                  <i class="ri-repeat-line"></i>
+                  <div><span class="data-stat-value" id="data-stat-recurring">0</span><span class="data-stat-label">Recorrentes</span></div>
+                </div>
+                <div class="data-stat">
+                  <i class="ri-hard-drive-3-line"></i>
+                  <div><span class="data-stat-value" id="data-stat-storage">0 KB</span><span class="data-stat-label">Armazenamento</span></div>
+                </div>
+                <div class="data-stat">
+                  <i class="ri-history-line"></i>
+                  <div><span class="data-stat-value" id="data-stat-last-backup">Nunca</span><span class="data-stat-label">Último Backup</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Exportar / Restaurar -->
+            <div class="settings-columns">
+              <div class="section-card settings-card">
+                <div class="settings-card-head">
+                  <span class="settings-card-icon"><i class="ri-download-2-line"></i></span>
+                  <div>
+                    <h4>Exportar Backup</h4>
+                    <p>Salve uma cópia dos seus dados. O JSON guarda <strong>tudo</strong>; o CSV gera uma planilha apenas de lançamentos.</p>
+                  </div>
+                </div>
+                <div class="settings-actions">
+                  <button id="btn-export-json" class="btn btn-primary">
+                    <i class="ri-download-2-line"></i> Backup Completo (JSON)
+                  </button>
+                  <button id="btn-export-csv" class="btn btn-secondary">
+                    <i class="ri-file-excel-2-line"></i> Planilha (CSV)
+                  </button>
+                </div>
+              </div>
+
+              <div class="section-card settings-card">
+                <div class="settings-card-head">
+                  <span class="settings-card-icon"><i class="ri-upload-2-line"></i></span>
+                  <div>
+                    <h4>Restaurar Backup</h4>
+                    <p>O JSON restaura tudo (transações, orçamentos, metas, contas e categorias). O CSV <strong>substitui todas as transações</strong> pelas do arquivo.</p>
+                  </div>
+                </div>
+                <div class="settings-actions">
+                  <input type="file" id="import-json-file" accept=".json" style="display: none;">
+                  <button id="btn-import-json" class="btn btn-secondary">
+                    <i class="ri-upload-2-line"></i> Importar Backup JSON
+                  </button>
+                  <input type="file" id="import-csv-file" accept=".csv,text/csv" style="display: none;">
+                  <button id="btn-import-csv" class="btn btn-secondary">
+                    <i class="ri-file-excel-2-line"></i> Importar Planilha CSV
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lançamentos Recorrentes -->
+            <div class="section-card settings-card">
+              <div class="settings-card-head">
+                <span class="settings-card-icon"><i class="ri-repeat-line"></i></span>
+                <div>
+                  <h4>Lançamentos Recorrentes</h4>
+                  <p>Criados ao escolher "Repetir" no modal de lançamento ou de transferência. As próximas ocorrências são geradas e salvas automaticamente ao abrir o app e ao navegar para meses futuros.</p>
+                </div>
+              </div>
+              <div id="recurring-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+            </div>
+
+            <!-- Personalização -->
+            <div class="section-card settings-card">
+              <div class="settings-card-head">
+                <span class="settings-card-icon"><i class="ri-equalizer-2-line"></i></span>
+                <div>
+                  <h4>Personalização</h4>
+                  <p>Moeda exibida, categorias próprias e suas contas/investimentos.</p>
+                </div>
+              </div>
+
+              <div class="form-group" style="max-width: 220px;">
+                <label class="form-label" for="settings-currency-select">Moeda Exibida</label>
+                <select id="settings-currency-select" class="form-control">
+                  <option value="BRL">Real (R$)</option>
+                  <option value="USD">Dólar (US$)</option>
+                  <option value="EUR">Euro (€)</option>
+                </select>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+                <!-- Categorias Personalizadas -->
+                <div>
+                  <h5 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 4px;">Categorias Personalizadas</h5>
+                  <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">Crie categorias próprias para receitas e despesas.</p>
+                  <form id="new-category-form" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+                    <input type="text" id="new-category-name" class="form-control" placeholder="Nome da categoria" maxlength="40" style="flex: 1; min-width: 130px;">
+                    <select id="new-category-type" class="form-control" style="width: 120px;">
+                      <option value="expense">Despesa</option>
+                      <option value="income">Receita</option>
+                    </select>
+                    <input type="color" id="new-category-color" value="#8b5cf6" title="Cor da categoria" style="width: 42px; height: 42px; padding: 4px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer;">
+                    <button class="btn btn-primary btn-sm" type="submit"><i class="ri-add-line"></i> Adicionar</button>
+                  </form>
+                  <div id="custom-categories-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+                </div>
+
+                <!-- Contas / Instituições (Banco, Corretora, Cartão) -->
+                <div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+                    <h5 style="font-size: 0.95rem; font-weight: 700;">Contas &amp; Instituições</h5>
+                    <button id="open-account-modal-btn" class="btn btn-primary btn-sm" type="button">
+                      <i class="ri-add-line"></i> Nova Conta
+                    </button>
+                  </div>
+                  <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">Bancos, corretoras e cartões de crédito — com saldo e limite.</p>
+                  <div id="accounts-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sincronização em Nuvem -->
+            <div class="section-card settings-card">
+              <div class="settings-card-head">
+                <span class="settings-card-icon"><i class="ri-cloud-line"></i></span>
+                <div>
+                  <h4>Sincronização em Nuvem</h4>
+                  <p>Acesse os mesmos dados no computador e no celular. Opcional e desativado por padrão.</p>
+                </div>
+              </div>
+              <div id="sync-panel" class="sync-panel"></div>
+            </div>
+
+            <!-- Zona de Perigo -->
+            <div class="section-card settings-card danger-card">
+              <div class="settings-card-head">
+                <span class="settings-card-icon"><i class="ri-alert-line"></i></span>
+                <div>
+                  <h4>Zona de Perigo</h4>
+                  <p>Ações irreversíveis. Recomendamos exportar um backup JSON antes de continuar.</p>
+                </div>
+              </div>
+              <div class="settings-actions">
+                <button id="btn-reset-data" class="btn btn-secondary" style="border-color: var(--expense); color: var(--expense);">
+                  <i class="ri-refresh-line"></i> Restaurar Dados Demonstrativos
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Painel de Vencimentos -->
+  <div id="due-panel-overlay" class="due-panel-overlay"></div>
+  <aside id="due-panel" class="due-panel" aria-label="Vencimentos e lembretes">
+    <div class="due-panel-header">
+      <div>
+        <h3>Vencimentos</h3>
+        <p id="due-panel-subtitle">Contas a pagar e receitas a conferir</p>
+      </div>
+      <div class="due-panel-header-actions">
+        <button id="due-enable-notify" class="btn btn-secondary btn-sm" type="button">
+          <i class="ri-notification-badge-line"></i> Ativar avisos
+        </button>
+        <button id="due-panel-close" class="modal-close-btn" type="button" aria-label="Fechar">
+          <i class="ri-close-line"></i>
+        </button>
+      </div>
+    </div>
+    <div id="due-panel-body" class="due-panel-body"></div>
+  </aside>
+
+  <!-- ================= MODAIS ================= -->
+
+  <!-- Modal de Transação (Receita ou Despesa) -->
+  <div id="modal-transaction" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="tx-modal-title" class="modal-title">Nova Transação</h3>
+        <button class="modal-close-btn" type="button"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="tx-form">
+        <div class="modal-body">
+          <div class="type-toggle-group">
+            <button id="tx-toggle-expense" type="button" class="type-toggle-btn active expense">
+              <i class="ri-subtract-line"></i> Despesa
+            </button>
+            <button id="tx-toggle-income" type="button" class="type-toggle-btn">
+              <i class="ri-add-line"></i> Receita
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="tx-desc-input">Descrição do Lançamento</label>
+            <input type="text" id="tx-desc-input" class="form-control" placeholder="Ex: Supermercado, Salário, Internet..." required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="tx-amount-input">Valor (R$)</label>
+              <input type="number" id="tx-amount-input" class="form-control" step="0.01" min="0.01" placeholder="0,00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="tx-date-input">Data</label>
+              <input type="date" id="tx-date-input" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="tx-category-select">Categoria</label>
+              <select id="tx-category-select" class="form-control"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="tx-account-input">Conta / Forma de Pagamento</label>
+              <select id="tx-account-input" class="form-control">
+                <option value="Conta Corrente">Conta Corrente</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                <option value="Carteira / Dinheiro">Carteira / Dinheiro</option>
+                <option value="Investimentos">Investimentos / Poupança</option>
+                <option value="Nubank">Nubank</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="tx-status-select">Status do Pagamento</label>
+              <select id="tx-status-select" class="form-control">
+                <option value="paid">Confirmado / Pago</option>
+                <option value="pending">Pendente / Agendado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="tx-repeat-select">Repetir</label>
+              <select id="tx-repeat-select" class="form-control">
+                <option value="none">Não repetir</option>
+                <option value="monthly">Mensalmente</option>
+                <option value="weekly">Semanalmente</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" id="tx-due-group">
+            <label class="form-label" for="tx-due-input">Vencimento (opcional)</label>
+            <input type="date" id="tx-due-input" class="form-control">
+            <small style="font-size: 0.72rem; color: var(--text-muted);">Quando este lançamento deve ser pago ou recebido. Usado pelos lembretes.</small>
+          </div>
+
+          <div class="form-group" id="tx-repeat-day-group" style="display: none;">
+            <label class="form-label" for="tx-repeat-day-input">Dia do mês da repetição</label>
+            <input type="number" id="tx-repeat-day-input" class="form-control" min="1" max="28" value="1">
+            <small style="font-size: 0.72rem; color: var(--text-muted);">Este lançamento será gerado automaticamente nos próximos meses.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="tx-notes-input">Observações (opcional)</label>
+            <input type="text" id="tx-notes-input" class="form-control" placeholder="Detalhes adicionais ou tags">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Lançamento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Transferência entre Contas -->
+  <div id="modal-transfer" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="transfer-modal-title" class="modal-title">Transferir entre Contas</h3>
+        <button class="modal-close-btn" type="button"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="transfer-form">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="transfer-from-select">De (origem)</label>
+              <select id="transfer-from-select" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="transfer-to-select">Para (destino)</label>
+              <select id="transfer-to-select" class="form-control" required></select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="transfer-amount-input">Valor (R$)</label>
+              <input type="number" id="transfer-amount-input" class="form-control" step="0.01" min="0.01" placeholder="Ex: 500,00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="transfer-date-input">Data</label>
+              <input type="date" id="transfer-date-input" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="transfer-fee-input">Taxa (opcional)</label>
+              <input type="number" id="transfer-fee-input" class="form-control" step="0.01" min="0" placeholder="0,00">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="transfer-repeat-select">Repetir</label>
+              <select id="transfer-repeat-select" class="form-control">
+                <option value="none">Não repetir</option>
+                <option value="monthly">Mensalmente</option>
+                <option value="weekly">Semanalmente</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" id="transfer-repeat-day-group" style="display: none;">
+            <label class="form-label" for="transfer-repeat-day-input">Dia do mês da repetição</label>
+            <input type="number" id="transfer-repeat-day-input" class="form-control" min="1" max="28" value="1">
+            <small style="font-size: 0.72rem; color: var(--text-muted);">As próximas transferências serão lançadas automaticamente neste dia.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="transfer-desc-input">Descrição (opcional)</label>
+            <input type="text" id="transfer-desc-input" class="form-control" placeholder="Ex: Aporte mensal, pagamento da fatura..." maxlength="80">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="transfer-notes-input">Notas (opcional)</label>
+            <input type="text" id="transfer-notes-input" class="form-control" placeholder="Detalhes adicionais">
+          </div>
+
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">
+            Transferências não contam como receita nem despesa — apenas movem o saldo entre as contas.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Transferir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Orçamento -->
+  <div id="modal-budget" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="budget-modal-title" class="modal-title">Definir Teto de Orçamento</h3>
+        <button class="modal-close-btn" type="button"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="budget-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="budget-category-select">Categoria de Despesa</label>
+            <select id="budget-category-select" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="budget-amount-input">Limite Mensal Máximo (R$)</label>
+            <input type="number" id="budget-amount-input" class="form-control" step="0.01" min="1" placeholder="Ex: 1200,00" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Limite</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Meta Financeira -->
+  <div id="modal-goal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="goal-modal-title" class="modal-title">Nova Meta Financeira</h3>
+        <button class="modal-close-btn" type="button"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="goal-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="goal-title-input">Nome da Meta</label>
+            <input type="text" id="goal-title-input" class="form-control" placeholder="Ex: Reserva de Emergência, Viagem Disney..." required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="goal-target-input">Valor Alvo (R$)</label>
+              <input type="number" id="goal-target-input" class="form-control" step="0.01" min="1" placeholder="Ex: 10000,00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="goal-current-input">Valor Já Guardado (R$)</label>
+              <input type="number" id="goal-current-input" class="form-control" step="0.01" min="0" placeholder="0,00">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="goal-deadline-input">Data Limite Desejada</label>
+              <input type="date" id="goal-deadline-input" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="goal-icon-select">Ícone Representativo</label>
+              <select id="goal-icon-select" class="form-control">
+                <option value="ri-shield-check-line">🛡️ Segurança / Reserva</option>
+                <option value="ri-plane-line">✈️ Viagens & Férias</option>
+                <option value="ri-car-line">🚗 Carro / Veículo</option>
+                <option value="ri-home-line">🏠 Casa Própria / Reforma</option>
+                <option value="ri-macbook-line">💻 Eletrônicos & Gadgets</option>
+                <option value="ri-graduation-cap-line">🎓 Educação / Estudos</option>
+                <option value="ri-heart-line">💍 Casamento / Família</option>
+                <option value="ri-money-dollar-circle-line">💰 Investimento Livre</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Criar Meta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Conta / Instituição -->
+  <div id="modal-account" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="account-modal-title" class="modal-title">Nova Conta / Instituição</h3>
+        <button class="modal-close-btn" type="button"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="account-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="account-name-input">Nome</label>
+            <input type="text" id="account-name-input" class="form-control" placeholder="Ex: Nubank, XP Investimentos, Cartão Visa..." maxlength="40" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="account-type-select">Tipo</label>
+            <select id="account-type-select" class="form-control">
+              <option value="bank">🏦 Banco (conta corrente / poupança)</option>
+              <option value="broker">📈 Corretora / Investimentos</option>
+              <option value="credit">💳 Cartão de Crédito</option>
+              <option value="wallet">👛 Carteira / Dinheiro</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="account-opening-group">
+            <label class="form-label" for="account-opening-input">Saldo Inicial (opcional)</label>
+            <input type="number" id="account-opening-input" class="form-control" step="0.01" placeholder="Ex: 1500,00">
+            <small style="font-size: 0.72rem; color: var(--text-muted);">Valor que já existia nesta conta antes dos lançamentos.</small>
+          </div>
+
+          <div class="form-group" id="account-limit-group" style="display: none;">
+            <label class="form-label" for="account-limit-input">Limite do Cartão (R$)</label>
+            <input type="number" id="account-limit-input" class="form-control" step="0.01" min="0" placeholder="Ex: 5000,00">
+            <small style="font-size: 0.72rem; color: var(--text-muted);">O disponível é calculado automaticamente: limite − usado.</small>
+          </div>
+
+          <div class="form-row" id="account-invoice-group" style="display: none;">
+            <div class="form-group">
+              <label class="form-label" for="account-closing-input">Dia de Fechamento</label>
+              <input type="number" id="account-closing-input" class="form-control" min="1" max="31" placeholder="Ex: 25">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="account-due-input">Dia de Vencimento</label>
+              <input type="number" id="account-due-input" class="form-control" min="1" max="31" placeholder="Ex: 5">
+            </div>
+            <small style="font-size: 0.72rem; color: var(--text-muted); width: 100%;">Usados para calcular o vencimento da fatura e gerar lembretes antes de pagar juros.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Conta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de Depósito em Meta -->
+  <div id="modal-deposit" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Guardar Dinheiro na Meta</h3>
+        <button class="modal-close-btn" type="button"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="deposit-form">
+        <input type="hidden" id="deposit-goal-id">
+        <div class="modal-body">
+          <p style="font-size: 0.9rem; color: var(--text-secondary);">
+            Meta: <strong id="deposit-goal-title" style="color: var(--text-primary);"></strong>
+          </p>
+          <div class="form-group">
+            <label class="form-label" for="deposit-amount-input">Quanto deseja adicionar agora? (R$)</label>
+            <input type="number" id="deposit-amount-input" class="form-control" step="0.01" min="0.01" placeholder="Ex: 250,00" required autofocus>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Confirmar Aporte</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts do FinanZen -->
+  <script src="js/state.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/sync-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/sync.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => {
+          console.warn('Service worker não registrado:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
