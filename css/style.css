@@ -281,13 +281,14 @@ button, input, select, textarea {
 
 /* Header Superior */
 .top-header {
-  height: var(--header-height);
+  min-height: var(--header-height);
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
+  padding: env(safe-area-inset-top, 0px) 32px 0;
   position: sticky;
   top: 0;
   z-index: 90;
@@ -2509,7 +2510,8 @@ body.light-theme .toast {
 
   /* ===== Cabeçalho simplificado no celular ===== */
   .top-header {
-    padding: 0 12px;
+    min-height: var(--header-height);
+    padding: env(safe-area-inset-top, 0px) 12px;
     gap: 8px;
     flex-wrap: wrap;
   }
