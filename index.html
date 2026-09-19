@@ -128,8 +128,6 @@
               <i class="ri-arrow-down-s-line period-selector-chevron" aria-hidden="true"></i>
             </button>
             <select id="global-period-select" class="period-selector-native" aria-label="Selecionar período" tabindex="-1"></select>
-            <div id="period-selector-veil" class="period-selector-veil"></div>
-            <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
           </div>
 
           <button class="btn btn-primary open-tx-modal-btn" data-type="expense">
@@ -1051,6 +1049,10 @@
       </form>
     </div>
   </div>
+
+  <!-- Portal do Seletor de Período (fora do header para o dropdown não ser "preso" pelo backdrop-filter) -->
+  <div id="period-selector-veil" class="period-selector-veil"></div>
+  <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
 
   <!-- Scripts do FinanZen -->
   <script src="js/state.js"></script>

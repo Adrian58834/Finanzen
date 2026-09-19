@@ -154,8 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
       // Abre/fecha o dropdown
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isOpen = root.classList.toggle('open');
-        btn.setAttribute('aria-expanded', String(isOpen));
+        if (document.body.classList.contains('period-menu-open')) {
+          this.closePeriodMenu();
+        } else {
+          this.openPeriodMenu();
+        }
       });
 
       veil.addEventListener('click', () => this.closePeriodMenu());
@@ -187,12 +190,68 @@ document.addEventListener('DOMContentLoaded', () => {
       this.updatePeriodSelectorUi();
     },
 
+    openPeriodMenu() {
+      const root = document.getElementById('period-selector');
+      const btn = document.getElementById('period-selector-btn');
+      if (!root || !btn) return;
+
+      document.body.classList.add('period-menu-open');
+      root.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+
+      // Posiciona o portal sob o botão no desktop (o menu não é mais filho do .period-selector)
+      if (window.innerWidth > 767) {
+        const menu = document.getElementById('period-selector-menu');
+        const veil = document.getElementById('period-selector-veil');
+        if (menu) {
+          const rect = btn.getBoundingClientRect();
+          const menuWidth = menu.offsetWidth || 280;
+          let left = rect.right - menuWidth;
+          if (left < 12) left = 12;
+          if (left + menuWidth > window.innerWidth - 12) {
+            left = window.innerWidth - menuWidth - 12;
+          }
+          menu.style.position = 'fixed';
+          menu.style.left = `${Math.round(left)}px`;
+          menu.style.top = `${Math.round(rect.bottom + 10)}px`;
+          if (veil) veil.style.display = 'block';
+        }
+      }
+
+      this.positionPeriodMenu();
+    },
+
+    positionPeriodMenu() {
+      const root = document.getElementById('period-selector');
+      const btn = document.getElementById('period-selector-btn');
+      if (!root || !btn) return;
+      const menu = document.getElementById('period-selector-menu');
+      if (!menu) return;
+      if (typeof window !== 'undefined' && window.innerWidth > 767) {
+        const rect = btn.getBoundingClientRect();
+        const veil = document.getElementById('period-selector-veil');
+        if (veil) {
+          veil.style.display = 'block';
+          veil.style.position = 'fixed';
+          veil.style.inset = '0';
+        }
+      }
+    },
+
     closePeriodMenu() {
       const root = document.getElementById('period-selector');
-      if (!root) return;
-      root.classList.remove('open');
+      if (root) root.classList.remove('open');
+      document.body.classList.remove('period-menu-open');
       const btn = document.getElementById('period-selector-btn');
       if (btn) btn.setAttribute('aria-expanded', 'false');
+      const menu = document.getElementById('period-selector-menu');
+      if (menu) {
+        menu.style.left = '';
+        menu.style.top = '';
+        menu.style.position = '';
+      }
+      const veil = document.getElementById('period-selector-veil');
+      if (veil) veil.style.display = '';
     },
 
     updatePeriodSelectorUi() {
