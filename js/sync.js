@@ -102,7 +102,7 @@
         this.pullIfNewer();
       };
       document.addEventListener('visibilitychange', onVisible);
-      window.addEventListener('focus', onVisible为重);
+      window.addEventListener('focus', onVisible);
 
       // 3) Reconectou à internet: envia o que estiver local e busca novidades
       window.addEventListener('online', () => {

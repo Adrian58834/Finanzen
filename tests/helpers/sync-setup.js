@@ -110,8 +110,21 @@ function readJs(file) {
 function createSyncEnv({ config = {}, rows = [] } = {}) {
   const storage = new MemoryStorage();
   const domReady = [];
-  const window = { FINANZEN_SUPABASE: config, financialState: null };
+  const windowListeners = {};
+  const window = {
+    FINANZEN_SUPABASE: config,
+    financialState: null,
+    addEventListener(type, cb) {
+      (windowListeners[type] = windowListeners[type] || []).push(cb);
+    },
+    removeEventListener(type, cb) {
+      const list = windowListeners[type] || [];
+      const i = list.indexOf(cb);
+      if (i >= 0) list.splice(i, 1);
+    }
+  };
   const document = {
+    visibilityState: 'visible',
     addEventListener(type, cb) {
       if (type === 'DOMContentLoaded') domReady.push(cb);
     },
@@ -123,6 +136,8 @@ function createSyncEnv({ config = {}, rows = [] } = {}) {
   };
   const fake = makeFakeSupabase(rows);
 
+  const scheduledIntervals = new Set();
+  let nextIntervalId = 1;
   const sandbox = {
     window,
     document,
@@ -130,7 +145,16 @@ function createSyncEnv({ config = {}, rows = [] } = {}) {
     supabase: fake.supabase,
     console,
     setTimeout,
-    clearTimeout
+    clearTimeout,
+    // Stub: registra sem agendar de verdade (evita segurar o processo de teste).
+    setInterval(fn, ms) {
+      const id = nextIntervalId++;
+      scheduledIntervals.add(id);
+      return id;
+    },
+    clearInterval(id) {
+      scheduledIntervals.delete(id);
+    }
   };
   window.localStorage = storage;
 
