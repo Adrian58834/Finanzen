@@ -7,6 +7,7 @@
 (function () {
   const META_KEY = 'finanzen_sync_v1';
   const PUSH_DEBOUNCE = 1500;
+  const AUTO_PULL_INTERVAL = 60000; // 1 min: compara com a nuvem e baixa se mais novo
 
   const config = window.FINANZEN_SUPABASE || {};
   const supported = typeof supabase !== 'undefined' && supabase.createClient;
@@ -80,6 +81,35 @@
         await this.pullIfNewer();
         this.render();
       }
+
+      this.startAutoPull();
+    },
+
+    // ---- Sincronização 100% automática ----
+    // Só atua se estiver conectado; intervalos e eventos são descartáveis.
+    startAutoPull() {
+      if (this._autoPullStarted) return;
+      this._autoPullStarted = true;
+
+      // 1) A cada minuto: compara com a nuvem e baixa se estiver mais nova
+      setInterval(() => {
+        if (this.user && !this._pullTimer) this.pullIfNewer();
+      }, AUTO_PULL_INTERVAL);
+
+      // 2) Ao voltar para o app (ex.: fechar e reabrir / trocar de aba)
+      const onVisible = () => {
+        if (document.visibilityState !== 'visible' || !this.user) return;
+        this.pullIfNewer();
+      };
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('focus', onVisible为重);
+
+      // 3) Reconectou à internet: envia o que estiver local e busca novidades
+      window.addEventListener('online', () => {
+        if (!this.user) return;
+        this.schedulePush();
+        this.pullIfNewer();
+      });
     },
 
     table() {

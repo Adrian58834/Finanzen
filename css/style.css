@@ -2418,6 +2418,32 @@ body.light-theme .toast {
     padding: 16px;
   }
 
+  /* ===== Padronização de espaçamento mobile (Painel e Relatórios) =====
+     Substitui os margens/gaps inline fixos (24px) pelo ritmo dos tokens. */
+  #tab-dashboard .charts-grid,
+  #tab-reports .charts-grid {
+    margin-top: var(--space-4);
+  }
+
+  #tab-dashboard .dashboard-bottom-grid,
+  #tab-reports .dashboard-bottom-grid {
+    margin-top: var(--space-4);
+  }
+
+  .metrics-grid,
+  #tab-reports .metrics-grid {
+    gap: var(--space-4);
+  }
+
+  .charts-grid {
+    gap: var(--space-4);
+  }
+
+  #tab-dashboard .section-card,
+  #tab-reports .section-card {
+    margin-top: var(--space-4);
+  }
+
   .form-row {
     grid-template-columns: 1fr;
   }
