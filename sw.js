@@ -1,5 +1,5 @@
 /* FinanZen - Service Worker (PWA offline) */
-const VERSION = 'finanzen-v1.2.1';
+const VERSION = 'finanzen-v1.3.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
