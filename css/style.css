@@ -681,17 +681,26 @@ body.period-menu-open .period-selector-menu {
 }
 
 /* Padronização de espaçamento vertical via tokens (replace dos inline 24px):
-   desktop = --space-5 (24px); mobile (media 767px) = --space-4 (16px) */
-#tab-dashboard .charts-grid,
-#tab-reports .charts-grid,
-#tab-dashboard .dashboard-bottom-grid,
-#tab-reports .dashboard-bottom-grid,
-#tab-dashboard .metrics-grid,
-#tab-reports .metrics-grid,
-#tab-dashboard .section-card,
-#tab-reports .section-card {
+   desktop = --space-5 (24px); mobile (media 767px) = --space-4 (16px).
+   Usa ">" para atingir SÓ os blocos diretos da aba — cards aninhados
+   (dentro de charts-grid / dashboard-bottom-grid) não recebem margem extra. */
+#tab-dashboard > .charts-grid,
+#tab-reports > .charts-grid,
+#tab-dashboard > .dashboard-bottom-grid,
+#tab-reports > .dashboard-bottom-grid,
+#tab-dashboard > .metrics-grid,
+#tab-reports > .metrics-grid,
+#tab-dashboard > .section-card,
+#tab-reports > .report-toolbar,
+#tab-reports > .section-card {
   margin-top: var(--space-5);
   box-sizing: border-box;
+}
+
+/* Primeiro bloco de cada aba: começa colado no topo (sem quina extra) */
+#tab-dashboard > .metrics-grid,
+#tab-reports > .report-toolbar {
+  margin-top: 0;
 }
 
 .chart-card {
@@ -759,6 +768,32 @@ body.period-menu-open .period-selector-menu {
 .section-title {
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+/* Cabeçalho de aba (Orçamentos / Metas): remove estilos inline antigos */
+.tab-header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+  padding: 20px 24px;
+}
+
+.tab-header-card h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.tab-header-card p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Título de seção dentro dos cards de Relatórios */
+.report-section-title {
+  margin-bottom: var(--space-4);
 }
 
 /* Tabela de Transações */
@@ -2434,28 +2469,37 @@ body.light-theme .toast {
 
   /* ===== Padronização de espaçamento mobile (Painel e Relatórios) =====
      Substitui os margens/gaps inline fixos (24px) pelo ritmo dos tokens. */
-  #tab-dashboard .charts-grid,
-  #tab-reports .charts-grid {
+  #tab-dashboard > .charts-grid,
+  #tab-reports > .charts-grid {
     margin-top: var(--space-4);
   }
 
-  #tab-dashboard .dashboard-bottom-grid,
-  #tab-reports .dashboard-bottom-grid {
+  #tab-dashboard > .dashboard-bottom-grid,
+  #tab-reports > .dashboard-bottom-grid {
     margin-top: var(--space-4);
   }
 
-  .metrics-grid,
-  #tab-reports .metrics-grid {
+  #tab-dashboard > .section-card,
+  #tab-reports > .section-card {
+    margin-top: var(--space-4);
+  }
+
+  #tab-reports > .metrics-grid {
+    margin-top: var(--space-4);
+  }
+
+  .tab-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: var(--space-4);
+  }
+
+  .metrics-grid {
     gap: var(--space-4);
   }
 
   .charts-grid {
     gap: var(--space-4);
-  }
-
-  #tab-dashboard .section-card,
-  #tab-reports .section-card {
-    margin-top: var(--space-4);
   }
 
   .form-row {
@@ -2668,7 +2712,7 @@ body.light-theme .toast {
 
   .metrics-grid {
     grid-template-columns: 1fr 1fr;
-    gap: var(--space-5);
+    gap: var(--space-4);
   }
 
   .metric-card {
@@ -2711,11 +2755,6 @@ body.light-theme .toast {
 
   .content-area {
     gap: var(--space-5);
-  }
-
-  .charts-grid,
-  .dashboard-bottom-grid {
-    margin-top: 4px !important;
   }
 
   .section-card,
