@@ -680,6 +680,20 @@ body.period-menu-open .period-selector-menu {
   gap: var(--space-5);
 }
 
+/* Padronização de espaçamento vertical via tokens (replace dos inline 24px):
+   desktop = --space-5 (24px); mobile (media 767px) = --space-4 (16px) */
+#tab-dashboard .charts-grid,
+#tab-reports .charts-grid,
+#tab-dashboard .dashboard-bottom-grid,
+#tab-reports .dashboard-bottom-grid,
+#tab-dashboard .metrics-grid,
+#tab-reports .metrics-grid,
+#tab-dashboard .section-card,
+#tab-reports .section-card {
+  margin-top: var(--space-5);
+  box-sizing: border-box;
+}
+
 .chart-card {
   background: var(--bg-card);
   backdrop-filter: var(--glass-blur);
