@@ -40,15 +40,21 @@
   ],
   "shortcuts": [
     {
-      "name": "Novo lançamento",
-      "short_name": "Lançamento",
-      "url": "./index.html#transactions",
+      "name": "Nova Despesa",
+      "short_name": "Despesa",
+      "url": "./index.html#new-expense",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Nova Receita",
+      "short_name": "Receita",
+      "url": "./index.html#new-income",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Vencimentos",
       "short_name": "Vencimentos",
-      "url": "./index.html#dashboard",
+      "url": "./index.html#due-reminders",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]

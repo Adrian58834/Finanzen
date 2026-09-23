@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     editingAccountId: null,
     editingTransferId: null,
     editingRecurringId: null,
+    txPage: 1,
+    txPerPage: 25,
 
     init() {
       this.initTheme();
@@ -319,6 +321,21 @@ document.addEventListener('DOMContentLoaded', () => {
           this.renderAll();
         });
       });
+
+      // Tratar atalhos de URL e hash inicial
+      if (window.location.hash) {
+        const hash = window.location.hash.replace('#', '');
+        if (hash === 'new-expense') {
+          setTimeout(() => this.openNewTxModal('expense'), 250);
+        } else if (hash === 'new-income') {
+          setTimeout(() => this.openNewTxModal('income'), 250);
+        } else if (hash === 'due-reminders') {
+          setTimeout(() => this.openDuePanel(), 250);
+        } else {
+          const tabBtn = document.querySelector(`[data-tab="${hash}"]`);
+          if (tabBtn) tabBtn.click();
+        }
+      }
     },
 
     updateHeaderTitle(tab) {
@@ -399,6 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Renderizador Geral ---
     renderAll() {
       this.renderDashboardMetrics();
+      this.renderFinancialIntelligence();
+      this.renderMonthComparison();
       this.renderRecentTransactions();
       this.renderAccountBalances();
       this.renderFullTransactionsTable();
@@ -1069,8 +1088,10 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       const txs = window.financialState.getFilteredTransactions(filters);
+      const totalTxs = txs.length;
+      const paginationContainer = document.getElementById('tx-pagination-container');
 
-      if (txs.length === 0) {
+      if (totalTxs === 0) {
         container.innerHTML = `
           <tr>
             <td colspan="7" class="empty-state">
@@ -1080,10 +1101,18 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
           </tr>
         `;
+        if (paginationContainer) paginationContainer.innerHTML = '';
         return;
       }
 
-      container.innerHTML = txs.map(tx => {
+      const totalPages = Math.ceil(totalTxs / this.txPerPage) || 1;
+      if (this.txPage > totalPages) this.txPage = totalPages;
+      if (this.txPage < 1) this.txPage = 1;
+
+      const startIndex = (this.txPage - 1) * this.txPerPage;
+      const pageTxs = txs.slice(startIndex, startIndex + this.txPerPage);
+
+      container.innerHTML = pageTxs.map(tx => {
         const isTransfer = tx.type === 'transfer';
         const cat = isTransfer
           ? { name: 'Transferência', icon: 'ri-swap-box-line', color: 'var(--accent-primary)' }
@@ -1133,6 +1162,48 @@ document.addEventListener('DOMContentLoaded', () => {
           </tr>
         `;
       }).join('');
+
+      // Paginação
+      if (paginationContainer) {
+        if (totalTxs <= this.txPerPage) {
+          paginationContainer.innerHTML = `
+            <span class="pagination-info">Mostrando todos os ${totalTxs} lançamentos</span>
+          `;
+        } else {
+          const from = startIndex + 1;
+          const to = Math.min(startIndex + this.txPerPage, totalTxs);
+          paginationContainer.innerHTML = `
+            <span class="pagination-info">Exibindo ${from}–${to} de ${totalTxs} lançamentos (Página ${this.txPage} de ${totalPages})</span>
+            <div class="pagination-controls">
+              <button class="pagination-btn" id="tx-prev-page" ${this.txPage <= 1 ? 'disabled' : ''}>
+                <i class="ri-arrow-left-s-line"></i> Anterior
+              </button>
+              <button class="pagination-btn" id="tx-next-page" ${this.txPage >= totalPages ? 'disabled' : ''}>
+                Próxima <i class="ri-arrow-right-s-line"></i>
+              </button>
+            </div>
+          `;
+
+          const prevBtn = document.getElementById('tx-prev-page');
+          const nextBtn = document.getElementById('tx-next-page');
+          if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+              if (this.txPage > 1) {
+                this.txPage--;
+                this.renderFullTransactionsTable();
+              }
+            });
+          }
+          if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+              if (this.txPage < totalPages) {
+                this.txPage++;
+                this.renderFullTransactionsTable();
+              }
+            });
+          }
+        }
+      }
 
       // Eventos de clique para editar e excluir
       container.querySelectorAll('.edit-tx').forEach(btn => {
@@ -1261,6 +1332,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       container.innerHTML = goals.map(g => {
         const percent = Math.min(Math.round((g.currentAmount / (g.targetAmount || 1)) * 100), 100);
+        const circumference = 188.5;
+        const strokeOffset = circumference - (percent / 100) * circumference;
+        const color = percent >= 100 ? 'var(--income)' : 'var(--accent-primary)';
 
         return `
           <div class="goal-card">
@@ -1268,30 +1342,38 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="goal-avatar">
                 <i class="${g.icon || 'ri-money-dollar-circle-line'}"></i>
               </div>
-              <div class="goal-percent-badge">${percent}%</div>
+              <span class="goal-percent-badge" style="background: ${color}20; color: ${color};">${percent}%</span>
             </div>
 
-            <div>
-              <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 4px;">${this.escapeHtml(g.title)}</h3>
-              ${g.deadline ? `<p style="font-size: 0.8rem; color: var(--text-muted);">Prazo: ${this.formatDate(g.deadline)}</p>` : ''}
-            </div>
-
-            <div class="budget-progress-track">
-              <div class="budget-progress-bar" style="width: ${percent}%; background: linear-gradient(90deg, var(--accent-primary), #06b6d4);"></div>
-            </div>
-
-            <div class="goal-values">
-              <div>
-                <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Guardado</span>
-                <span class="goal-current-val">${this.formatCurrency(g.currentAmount)}</span>
+            <div class="goal-card-content">
+              <div class="goal-circular-wrapper">
+                <svg class="goal-circular-svg" viewBox="0 0 76 76">
+                  <circle class="goal-circular-bg" cx="38" cy="38" r="30"></circle>
+                  <circle class="goal-circular-bar" cx="38" cy="38" r="30"
+                    stroke="${color}"
+                    stroke-dasharray="${circumference}"
+                    stroke-dashoffset="${strokeOffset}"></circle>
+                </svg>
+                <span class="goal-circular-text">${percent}%</span>
               </div>
-              <div style="text-align: right;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary); display: block;">Objetivo</span>
-                <span class="goal-target-val">${this.formatCurrency(g.targetAmount)}</span>
+
+              <div class="goal-details">
+                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 2px;">${this.escapeHtml(g.title)}</h3>
+                ${g.deadline ? `<p style="font-size: 0.78rem; color: var(--text-muted);"><i class="ri-calendar-line"></i> Prazo: ${this.formatDate(g.deadline)}</p>` : ''}
+                <div class="goal-values" style="margin-top: 4px;">
+                  <div>
+                    <span style="font-size: 0.72rem; color: var(--text-secondary); display: block;">Guardado</span>
+                    <span class="goal-current-val" style="font-size: 1.15rem; color: ${color};">${this.formatCurrency(g.currentAmount)}</span>
+                  </div>
+                  <div style="text-align: right;">
+                    <span style="font-size: 0.72rem; color: var(--text-secondary); display: block;">Alvo</span>
+                    <span class="goal-target-val" style="font-size: 0.82rem;">${this.formatCurrency(g.targetAmount)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
+            <div style="display: flex; gap: 8px; margin-top: 4px;">
               <button class="btn btn-secondary btn-sm deposit-goal-btn" style="flex: 1;" data-id="${g.id}">
                 <i class="ri-add-circle-line"></i> Guardar +
               </button>
@@ -1412,6 +1494,243 @@ document.addEventListener('DOMContentLoaded', () => {
           }).join('');
         }
       }
+
+      // Diagnóstico do Score na aba relatórios
+      const diagnosticEl = document.getElementById('report-score-diagnostic');
+      if (diagnosticEl) {
+        const scoreData = window.financialState.getFinancialScore(this.selectedPeriod);
+        diagnosticEl.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+            <div style="font-size: 2.2rem; font-weight: 800; color: ${scoreData.color}; line-height: 1;">${scoreData.score}</div>
+            <div>
+              <strong style="color: ${scoreData.color}; font-size: 0.95rem;">Classificação: ${scoreData.label}</strong>
+              <div style="font-size: 0.8rem; color: var(--text-secondary);">${scoreData.message}</div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
+                <span>Taxa de Poupança (meta 25%+)</span>
+                <strong>${scoreData.breakdown.savings}%</strong>
+              </div>
+              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: #10b981;"></div></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
+                <span>Controle de Orçamentos</span>
+                <strong>${scoreData.breakdown.budget}%</strong>
+              </div>
+              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: #6366f1;"></div></div>
+            </div>
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
+                <span>Progresso em Metas</span>
+                <strong>${scoreData.breakdown.goals}%</strong>
+              </div>
+              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.goals}%; background: #a855f7;"></div></div>
+            </div>
+          </div>
+        `;
+      }
+    },
+
+    // --- Inteligência Financeira: Score & Previsão ---
+    renderFinancialIntelligence() {
+      const container = document.getElementById('dashboard-intelligence-grid');
+      if (!container) return;
+
+      const state = window.financialState;
+      const scoreData = state.getFinancialScore(this.selectedPeriod);
+      const forecast = state.getExpenseForecast(this.selectedPeriod);
+
+      const circumference = 251.32;
+      const dashoffset = circumference - (scoreData.score / 100) * circumference;
+
+      const forecastPercent = Math.min(100, forecast.budgetPercent);
+      const forecastClass = forecast.isOverBudget ? 'danger' : (forecastPercent >= 80 ? 'warning' : '');
+
+      container.innerHTML = `
+        <div class="score-card">
+          <div class="score-header">
+            <span class="metric-title" style="display: flex; align-items: center; gap: 6px;">
+              <i class="ri-heart-pulse-line" style="color: var(--accent-primary);"></i> Score de Saúde Financeira
+            </span>
+            <span class="score-status-badge" style="background: ${scoreData.color}22; color: ${scoreData.color};">
+              <i class="${scoreData.icon}"></i> ${scoreData.label}
+            </span>
+          </div>
+
+          <div class="score-main">
+            <div class="score-gauge-wrapper">
+              <svg class="score-gauge-svg" viewBox="0 0 96 96">
+                <circle class="score-gauge-bg" cx="48" cy="48" r="40"></circle>
+                <circle class="score-gauge-bar" cx="48" cy="48" r="40"
+                  stroke="${scoreData.color}"
+                  stroke-dasharray="${circumference}"
+                  stroke-dashoffset="${dashoffset}"></circle>
+              </svg>
+              <div class="score-gauge-number">
+                <span class="score-gauge-val" style="color: ${scoreData.color};">${scoreData.score}</span>
+                <span class="score-gauge-max">/ 100</span>
+              </div>
+            </div>
+
+            <div class="score-info">
+              <strong style="font-size: 0.95rem;">${scoreData.label} (${scoreData.score} pts)</strong>
+              <p class="score-message">${scoreData.message}</p>
+            </div>
+          </div>
+
+          <div class="score-breakdown">
+            <div class="score-meter-item">
+              <div class="score-meter-label">
+                <span>Poupança</span>
+                <strong>${scoreData.breakdown.savings}%</strong>
+              </div>
+              <div class="score-meter-track">
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: #10b981;"></div>
+              </div>
+            </div>
+
+            <div class="score-meter-item">
+              <div class="score-meter-label">
+                <span>Orçamento</span>
+                <strong>${scoreData.breakdown.budget}%</strong>
+              </div>
+              <div class="score-meter-track">
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: #6366f1;"></div>
+              </div>
+            </div>
+
+            <div class="score-meter-item">
+              <div class="score-meter-label">
+                <span>Diversificação</span>
+                <strong>${scoreData.breakdown.income}%</strong>
+              </div>
+              <div class="score-meter-track">
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.income}%; background: #06b6d4;"></div>
+              </div>
+            </div>
+
+            <div class="score-meter-item">
+              <div class="score-meter-label">
+                <span>Metas</span>
+                <strong>${scoreData.breakdown.goals}%</strong>
+              </div>
+              <div class="score-meter-track">
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.goals}%; background: #a855f7;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="forecast-card">
+          <div class="score-header">
+            <span class="metric-title" style="display: flex; align-items: center; gap: 6px;">
+              <i class="ri-radar-line" style="color: var(--info);"></i> Previsão de Gastos do Mês
+            </span>
+            <span class="trend-badge ${forecast.isOverBudget ? 'trend-down' : 'trend-up'}">
+              <i class="${forecast.isOverBudget ? 'ri-error-warning-line' : 'ri-check-line'}"></i>
+              ${forecast.isOverBudget ? 'Risco de Estourar' : 'Dentro do Previsto'}
+            </span>
+          </div>
+
+          <div class="forecast-stats-row">
+            <div class="forecast-stat">
+              <span class="forecast-stat-label">Gasto até agora</span>
+              <span class="forecast-stat-val expense">${this.formatCurrency(forecast.spentSoFar)}</span>
+            </div>
+            <div class="forecast-stat">
+              <span class="forecast-stat-label">Projeção Final</span>
+              <span class="forecast-stat-val" style="color: ${forecast.isOverBudget ? 'var(--expense)' : 'var(--info)'};">
+                ${this.formatCurrency(forecast.projectedTotal)}
+              </span>
+            </div>
+          </div>
+
+          <div class="forecast-progress-wrap">
+            <div class="forecast-progress-track">
+              <div class="forecast-progress-bar ${forecastClass}" style="width: ${forecastPercent}%;"></div>
+            </div>
+            <div class="forecast-meta">
+              <span>Média diária: <strong>${this.formatCurrency(forecast.dailyAvg)}/dia</strong></span>
+              <span>${forecast.totalBudget > 0 ? `Orçamento: ${this.formatCurrency(forecast.totalBudget)}` : 'Sem teto global'}</span>
+            </div>
+          </div>
+
+          <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+            <i class="ri-time-line"></i>
+            <span>Dia ${forecast.currentDay} de ${forecast.daysInMonth} • Restam ${forecast.remainingDays} dias no período</span>
+          </div>
+        </div>
+      `;
+    },
+
+    // --- Comparativo Mês a Mês ---
+    renderMonthComparison() {
+      const container = document.getElementById('dashboard-month-comparison');
+      if (!container) return;
+
+      const comp = window.financialState.getMonthComparison(this.selectedPeriod);
+      const currLabel = this.shortPeriodLabel(comp.currentPeriod);
+      const prevLabel = this.shortPeriodLabel(comp.previousPeriod);
+
+      const renderDelta = (delta, isGoodWhenUp = true) => {
+        if (!delta || delta.diff === 0) {
+          return `<span class="comparison-card-delta delta-neutral"><i class="ri-subtract-line"></i> Sem alteração</span>`;
+        }
+        const isUp = delta.diff > 0;
+        const isPositive = isGoodWhenUp ? isUp : !isUp;
+        const cls = isPositive ? 'delta-positive' : 'delta-negative';
+        const arrow = isUp ? 'ri-arrow-up-line' : 'ri-arrow-down-line';
+        const sign = isUp ? '+' : '';
+        return `
+          <span class="comparison-card-delta ${cls}">
+            <i class="${arrow}"></i> ${sign}${delta.pct}% (${this.formatCurrency(delta.diff)})
+          </span>
+        `;
+      };
+
+      container.innerHTML = `
+        <div class="comparison-header">
+          <div class="comparison-title">
+            <i class="ri-scales-3-line" style="color: var(--accent-primary);"></i>
+            <span>Comparativo vs Mês Anterior</span>
+          </div>
+          <span class="comparison-badge">${currLabel} vs ${prevLabel}</span>
+        </div>
+
+        <div class="comparison-grid">
+          <div class="comparison-card">
+            <span class="comparison-card-title">Receitas</span>
+            <span class="comparison-card-val income">${this.formatCurrency(comp.current.totalIncome)}</span>
+            ${renderDelta(comp.income, true)}
+          </div>
+
+          <div class="comparison-card">
+            <span class="comparison-card-title">Despesas</span>
+            <span class="comparison-card-val expense">${this.formatCurrency(comp.current.totalExpense)}</span>
+            ${renderDelta(comp.expense, false)}
+          </div>
+
+          <div class="comparison-card">
+            <span class="comparison-card-title">Saldo Líquido</span>
+            <span class="comparison-card-val ${comp.current.netBalance >= 0 ? 'income' : 'expense'}">
+              ${this.formatCurrency(comp.current.netBalance)}
+            </span>
+            ${renderDelta(comp.balance, true)}
+          </div>
+
+          <div class="comparison-card">
+            <span class="comparison-card-title">Taxa de Poupança</span>
+            <span class="comparison-card-val" style="color: var(--info);">${comp.current.savingsRate}%</span>
+            <span class="comparison-card-delta ${comp.savings.diff >= 0 ? 'delta-positive' : 'delta-negative'}">
+              <i class="${comp.savings.diff >= 0 ? 'ri-arrow-up-line' : 'ri-arrow-down-line'}"></i>
+              ${comp.savings.diff >= 0 ? '+' : ''}${comp.savings.diff}% pts
+            </span>
+          </div>
+        </div>
+      `;
     },
 
     // --- Compartilhar / Converter Relatórios ---
@@ -1564,6 +1883,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       window.financeCharts.initOrUpdateFlowChart('flowCashChart', year);
       window.financeCharts.initOrUpdateCategoryChart('categoryExpenseChart', this.selectedPeriod);
+      window.financeCharts.initOrUpdateNetWorthChart('netWorthChart', 12);
+      window.financeCharts.initOrUpdateIncomeCategoryChart('categoryIncomeChart', this.selectedPeriod);
     },
 
     // --- Personalização: Categorias, Contas e Moeda ---
@@ -2511,13 +2832,26 @@ populateTxCategories(type, selectedCatId = null) {
       this.populateCategoryFilterSelect();
       this.populateAccountFilterSelect();
 
-      const applyFilters = () => this.renderFullTransactionsTable();
+      let searchTimeout = null;
+      if (searchInput) {
+        searchInput.addEventListener('input', () => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => {
+            this.txPage = 1;
+            this.renderFullTransactionsTable();
+          }, 250);
+        });
+      }
 
-      if (searchInput) searchInput.addEventListener('input', applyFilters);
-      if (typeSelect) typeSelect.addEventListener('change', applyFilters);
-      if (catSelect) catSelect.addEventListener('change', applyFilters);
-      if (statusSelect) statusSelect.addEventListener('change', applyFilters);
-      if (accountSelect) accountSelect.addEventListener('change', applyFilters);
+      const resetPageAndApply = () => {
+        this.txPage = 1;
+        this.renderFullTransactionsTable();
+      };
+
+      if (typeSelect) typeSelect.addEventListener('change', resetPageAndApply);
+      if (catSelect) catSelect.addEventListener('change', resetPageAndApply);
+      if (statusSelect) statusSelect.addEventListener('change', resetPageAndApply);
+      if (accountSelect) accountSelect.addEventListener('change', resetPageAndApply);
     },
 
     // --- Backup, Exportação e Importação ---
@@ -2622,8 +2956,11 @@ populateTxCategories(type, selectedCatId = null) {
       if (type === 'warning') icon = 'ri-alert-line';
 
       toast.innerHTML = `
-        <i class="${icon}" style="font-size: 1.2rem;"></i>
-        <span>${message}</span>
+        <div class="toast-body">
+          <i class="${icon}"></i>
+          <span>${message}</span>
+        </div>
+        <div class="toast-progress"></div>
       `;
 
       container.appendChild(toast);
@@ -2633,7 +2970,7 @@ populateTxCategories(type, selectedCatId = null) {
         toast.style.transform = 'translateX(50px)';
         toast.style.transition = 'all 0.3s ease';
         setTimeout(() => toast.remove(), 300);
-      }, 3500);
+      }, 3200);
     }
   };
 

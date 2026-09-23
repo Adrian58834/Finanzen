@@ -206,6 +206,12 @@
             </div>
           </div>
 
+          <!-- Central de Inteligência Financeira (Score & Previsão) -->
+          <div id="dashboard-intelligence-grid" class="intelligence-grid"></div>
+
+          <!-- Comparativo Mês a Mês -->
+          <div id="dashboard-month-comparison" class="month-comparison-section"></div>
+
           <!-- Seção de Gráficos -->
           <div class="charts-grid">
             <div class="chart-card">
@@ -229,6 +235,18 @@
               </div>
               <div class="chart-canvas-container" style="display: flex; align-items: center; justify-content: center;">
                 <canvas id="categoryExpenseChart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card" style="grid-column: 1 / -1;">
+              <div class="chart-header">
+                <div>
+                  <h3 class="chart-title">Evolução Patrimonial (12 Meses)</h3>
+                  <p class="chart-subtitle">Crescimento do seu patrimônio consolidado mês a mês</p>
+                </div>
+              </div>
+              <div class="chart-canvas-container" style="height: 280px;">
+                <canvas id="netWorthChart"></canvas>
               </div>
             </div>
           </div>
@@ -331,6 +349,7 @@
                 <tbody id="transactions-table-body"></tbody>
               </table>
             </div>
+            <div id="tx-pagination-container" class="pagination-container"></div>
           </div>
         </section>
 
@@ -455,6 +474,23 @@
             <div class="section-card">
               <h3 class="section-title report-section-title">Despesas Pendentes a Pagar</h3>
               <div id="report-pending-expenses"></div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <div>
+                  <h3 class="chart-title">Receitas por Categoria</h3>
+                  <p class="chart-subtitle">Fontes de entrada no período selecionado</p>
+                </div>
+              </div>
+              <div class="chart-canvas-container" style="display: flex; align-items: center; justify-content: center;">
+                <canvas id="categoryIncomeChart"></canvas>
+              </div>
+            </div>
+
+            <div class="section-card">
+              <h3 class="section-title report-section-title">Diagnóstico do Score Pessoal</h3>
+              <div id="report-score-diagnostic"></div>
             </div>
           </div>
 

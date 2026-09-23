@@ -12,7 +12,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..');
 
 // IDs criados dinamicamente pelo código (não existem no HTML inicial)
-const DYNAMIC_IDS = new Set(['toast-container', 'due-alert-open', 'sync-email', 'sync-password']);
+const DYNAMIC_IDS = new Set(['toast-container', 'due-alert-open', 'sync-email', 'sync-password', 'tx-prev-page', 'tx-next-page']);
 
 function read(file) {
   return fs.readFileSync(path.join(ROOT, file), 'utf8');

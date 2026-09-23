@@ -837,6 +837,239 @@ class FinancialState {
     return { labels: months, income: incomeData, expense: expenseData };
   }
 
+  getIncomeByCategory(monthStr = 'all') {
+    let list = this.data.transactions.filter(t => t.type === 'income');
+    if (monthStr !== 'all') {
+      list = list.filter(t => t.date.startsWith(monthStr));
+    }
+
+    const map = {};
+    list.forEach(tx => {
+      const catId = tx.category;
+      map[catId] = (map[catId] || 0) + (parseFloat(tx.amount) || 0);
+    });
+
+    return Object.keys(map).map(catId => {
+      const cat = this.getCategoryById(catId);
+      return {
+        id: catId,
+        name: cat.name,
+        color: cat.color,
+        icon: cat.icon,
+        total: map[catId]
+      };
+    }).sort((a, b) => b.total - a.total);
+  }
+
+  // --- Score Financeiro Pessoal (0 - 100) ---
+  getFinancialScore(monthStr = 'all') {
+    const metrics = this.getMetrics(monthStr);
+    const budgets = this.data.budgets || [];
+    const goals = this.data.goals || [];
+    const expensesByCat = this.getExpensesByCategory(monthStr);
+
+    // 1. Taxa de Poupança (peso 30) - 20%+ = pontuação máxima
+    let savingsScore = 0;
+    if (metrics.totalIncome > 0) {
+      const rate = metrics.savingsRate;
+      savingsScore = Math.min(100, Math.max(0, (rate / 25) * 100)) * 0.30;
+    } else {
+      savingsScore = 15;
+    }
+
+    // 2. Aderência ao Orçamento (peso 25)
+    let budgetScore = 25;
+    if (budgets.length > 0) {
+      let overBudgetCount = 0;
+      budgets.forEach(b => {
+        const catSpent = expensesByCat.find(c => c.id === b.categoryId)?.total || 0;
+        if (catSpent > b.monthlyLimit) overBudgetCount++;
+      });
+      const adheredRatio = (budgets.length - overBudgetCount) / budgets.length;
+      budgetScore = adheredRatio * 25;
+    }
+
+    // 3. Diversificação de Receitas (peso 15)
+    let incomeScore = 5;
+    const incomes = this.getIncomeByCategory(monthStr);
+    if (incomes.length >= 3) incomeScore = 15;
+    else if (incomes.length >= 2) incomeScore = 12;
+    else if (incomes.length === 1) incomeScore = 8;
+
+    // 4. Progresso em Metas (peso 15)
+    let goalsScore = 5;
+    if (goals.length > 0) {
+      const avgProgress = goals.reduce((acc, g) => {
+        const target = parseFloat(g.targetAmount) || 1;
+        const current = parseFloat(g.currentAmount) || 0;
+        return acc + Math.min(100, (current / target) * 100);
+      }, 0) / goals.length;
+      goalsScore = (avgProgress / 100) * 15;
+    }
+
+    // 5. Controle de Contas Pendentes (peso 15)
+    let pendingScore = 15;
+    if (metrics.totalExpense > 0 && metrics.pendingExpense > 0) {
+      const pendingRatio = metrics.pendingExpense / metrics.totalExpense;
+      pendingScore = Math.max(0, (1 - pendingRatio) * 15);
+    }
+
+    const totalScore = Math.round(savingsScore + budgetScore + incomeScore + goalsScore + pendingScore);
+    const clampedScore = Math.min(100, Math.max(0, totalScore));
+
+    let label = 'Atenção';
+    let color = '#ef4444';
+    let icon = 'ri-alarm-warning-line';
+    let message = 'Suas finanças exigem cuidado imediato. Reduza despesas supérfluas.';
+
+    if (clampedScore >= 80) {
+      label = 'Excelente';
+      color = '#10b981';
+      icon = 'ri-shield-star-line';
+      message = 'Saúde financeira impecável! Você poupa bem e controla seus gastos.';
+    } else if (clampedScore >= 65) {
+      label = 'Bom';
+      color = '#06b6d4';
+      icon = 'ri-thumb-up-line';
+      message = 'Suas finanças estão equilibradas. Mantenha o foco em suas metas.';
+    } else if (clampedScore >= 50) {
+      label = 'Regular';
+      color = '#f59e0b';
+      icon = 'ri-alert-line';
+      message = 'Você está quase no limite. Monitore seus orçamentos de perto.';
+    }
+
+    return {
+      score: clampedScore,
+      label,
+      color,
+      icon,
+      message,
+      breakdown: {
+        savings: Math.round((savingsScore / 30) * 100),
+        budget: Math.round((budgetScore / 25) * 100),
+        income: Math.round((incomeScore / 15) * 100),
+        goals: Math.round((goalsScore / 15) * 100),
+        pending: Math.round((pendingScore / 15) * 100)
+      }
+    };
+  }
+
+  // --- Comparativo Mês a Mês ---
+  getMonthComparison(currentPeriod = null) {
+    let currPeriod = currentPeriod;
+    if (!currPeriod || currPeriod === 'all') {
+      const now = new Date();
+      currPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    const [y, m] = currPeriod.split('-').map(Number);
+    let prevYear = y;
+    let prevMonth = m - 1;
+    if (prevMonth < 1) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+    const prevPeriod = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+
+    const currMetrics = this.getMetrics(currPeriod);
+    const prevMetrics = this.getMetrics(prevPeriod);
+
+    const calcDelta = (curr, prev) => {
+      const diff = curr - prev;
+      const pct = prev > 0 ? ((diff / prev) * 100) : (curr > 0 ? 100 : 0);
+      return { diff, pct: Math.round(pct) };
+    };
+
+    return {
+      currentPeriod: currPeriod,
+      previousPeriod: prevPeriod,
+      current: currMetrics,
+      previous: prevMetrics,
+      income: calcDelta(currMetrics.totalIncome, prevMetrics.totalIncome),
+      expense: calcDelta(currMetrics.totalExpense, prevMetrics.totalExpense),
+      balance: calcDelta(currMetrics.netBalance, prevMetrics.netBalance),
+      savings: { diff: currMetrics.savingsRate - prevMetrics.savingsRate }
+    };
+  }
+
+  // --- Previsão de Gastos para o Mês ---
+  getExpenseForecast(monthStr = null) {
+    const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const targetPeriod = (monthStr && monthStr !== 'all') ? monthStr : currentMonthKey;
+
+    const [y, m] = targetPeriod.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const isCurrentMonth = targetPeriod === currentMonthKey;
+    const currentDay = isCurrentMonth ? today.getDate() : daysInMonth;
+
+    const metrics = this.getMetrics(targetPeriod);
+    const spentSoFar = metrics.totalExpense;
+
+    const dailyAvg = currentDay > 0 ? (spentSoFar / currentDay) : 0;
+    const projectedTotal = isCurrentMonth ? Math.round(dailyAvg * daysInMonth) : spentSoFar;
+
+    const budgets = this.data.budgets || [];
+    const totalBudget = budgets.reduce((sum, b) => sum + (parseFloat(b.monthlyLimit) || 0), 0);
+
+    const remainingDays = Math.max(0, daysInMonth - currentDay);
+    const isOverBudget = totalBudget > 0 && projectedTotal > totalBudget;
+
+    return {
+      period: targetPeriod,
+      daysInMonth,
+      currentDay,
+      remainingDays,
+      spentSoFar,
+      dailyAvg,
+      projectedTotal,
+      totalBudget,
+      isOverBudget,
+      budgetPercent: totalBudget > 0 ? Math.round((projectedTotal / totalBudget) * 100) : 0
+    };
+  }
+
+  // --- Evolução Patrimonial (Últimos N meses) ---
+  getNetWorthEvolution(monthsCount = 12) {
+    const labels = [];
+    const values = [];
+    const now = new Date();
+    const monthNamesShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    const periods = [];
+    for (let i = monthsCount - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const periodStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      periods.push({
+        key: periodStr,
+        label: `${monthNamesShort[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`
+      });
+    }
+
+    periods.forEach(p => {
+      labels.push(p.label);
+      let netAccum = 0;
+      this.data.transactions.forEach(tx => {
+        if (tx.date <= `${p.key}-31`) {
+          const val = parseFloat(tx.amount) || 0;
+          if (tx.type === 'income') netAccum += val;
+          else if (tx.type === 'expense') netAccum -= val;
+          else if (tx.type === 'transfer') netAccum -= (parseFloat(tx.fee) || 0);
+        }
+      });
+      const opening = (this.data.accounts || []).reduce((acc, a) => {
+        if (a.type !== 'credit') return acc + (parseFloat(a.openingBalance) || 0);
+        return acc;
+      }, 0);
+
+      values.push(Math.round(netAccum + opening));
+    });
+
+    return { labels, values };
+  }
+
+
   // --- Lançamentos Recorrentes / Agendados ---
   todayStr() {
     const d = new Date();
