@@ -6,6 +6,7 @@ class FinancialState {
   constructor() {
     this.STORAGE_KEY = 'finanzen_data_v1';
     this.SETTINGS_KEY = 'finanzen_settings_v1';
+    this.LAST_CHANGE_KEY = 'finanzen_last_local_change';
 
     this.defaultCategories = {
       income: [
@@ -91,6 +92,13 @@ class FinancialState {
   // Avisa o módulo de sincronização (quando presente) que houve alteração
   notifyDataChanged() {
     if (this._suspendSync) return;
+    // Marca o instante real da última alteração local: usado pelo sync para
+    // decidir entre baixar da nuvem ou enviar (evita sobrescrever edição local).
+    try {
+      localStorage.setItem(this.LAST_CHANGE_KEY, String(Date.now()));
+    } catch (e) {
+      console.error('Erro ao registrar alteração local:', e);
+    }
     if (typeof window !== 'undefined' && window.financeSync && typeof window.financeSync.schedulePush === 'function') {
       window.financeSync.schedulePush();
     }
@@ -366,6 +374,17 @@ class FinancialState {
       newTx.fee = parseFloat(tx.fee) || 0;
     }
 
+    // Compra no cartão de crédito vira dívida da fatura: só é paga quando a
+    // fatura for paga, e o vencimento segue o ciclo do cartão.
+    if (type === 'expense' && this.isCreditCardAccount(newTx.account)) {
+      newTx.status = 'pending';
+      if (!newTx.dueDate) {
+        const account = this.getAccountByName(newTx.account);
+        const cfg = this.getCardInvoiceConfig(account);
+        newTx.dueDate = this.computeInvoiceDates(newTx.date, cfg.closingDay, cfg.dueDay).dueDate;
+      }
+    }
+
     if (tx.fixed) {
       newTx.fixed = true;
       newTx.recurringId = tx.recurringId || null;
@@ -376,14 +395,287 @@ class FinancialState {
     return newTx;
   }
 
+  // --- Lançamento de Compras Parceladas no Cartão ---
+  addInstallmentTransactions(tx, installmentsCount = 1) {
+    const count = parseInt(installmentsCount, 10) || 1;
+    if (count <= 1) {
+      return [this.addTransaction(tx)];
+    }
+
+    const totalAmount = parseFloat(tx.amount) || 0;
+    const installmentAmount = Math.round((totalAmount / count) * 100) / 100;
+    const remainder = Math.round((totalAmount - (installmentAmount * count)) * 100) / 100;
+
+    const groupId = 'inst_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+
+    let year = new Date().getFullYear();
+    let month = new Date().getMonth();
+    let day = new Date().getDate();
+
+    if (tx.date) {
+      const parts = String(tx.date).split('-').map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        year = parts[0];
+        month = parts[1] - 1;
+        day = parts[2];
+      }
+    }
+
+    const createdList = [];
+    for (let i = 1; i <= count; i++) {
+      // Adiciona o ajuste de centavos na primeira parcela
+      const currentAmount = i === 1 ? (installmentAmount + remainder) : installmentAmount;
+
+      // Calcula a data de cada parcela sem bug de UTC
+      const pDate = new Date(year, month + (i - 1), day);
+      const pYear = pDate.getFullYear();
+      const pMonth = String(pDate.getMonth() + 1).padStart(2, '0');
+      const pDay = String(pDate.getDate()).padStart(2, '0');
+      const formattedDate = `${pYear}-${pMonth}-${pDay}`;
+
+      const installmentTx = {
+        id: 'tx_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substring(2, 4),
+        amount: currentAmount,
+        description: `${tx.description || 'Compra Parcelada'} (${i}/${count})`,
+        type: 'expense',
+        category: tx.category || 'cat_outros_exp',
+        date: formattedDate,
+        account: tx.account || 'Cartão de Crédito',
+        status: tx.status || 'paid',
+        dueDate: tx.dueDate || '',
+        notes: tx.notes || `Parcela ${i} de ${count} (Valor total: R$ ${totalAmount.toFixed(2)})`,
+        installmentGroup: groupId,
+        installmentCurrent: i,
+        installmentTotal: count,
+        totalAmount
+      };
+
+      // Cada parcela entra na fatura do mês que recebe a compra e só é paga
+      // junto com a fatura.
+      if (this.isCreditCardAccount(installmentTx.account)) {
+        installmentTx.status = 'pending';
+        if (!installmentTx.dueDate) {
+          const account = this.getAccountByName(installmentTx.account);
+          const cfg = this.getCardInvoiceConfig(account);
+          installmentTx.dueDate = this.computeInvoiceDates(formattedDate, cfg.closingDay, cfg.dueDay).dueDate;
+        }
+      }
+
+      this.data.transactions.unshift(installmentTx);
+      createdList.push(installmentTx);
+    }
+
+    this.saveData();
+    return createdList;
+  }
+
+  // --- Módulo Avançado de Cartão de Crédito ---
+  getCreditCardAccounts() {
+    return this.getAccounts().filter(a => a.type === 'credit' || this.inferAccountType(a.name) === 'credit');
+  }
+
+  // A conta informada é um cartão de crédito?
+  isCreditCardAccount(accountName) {
+    if (!accountName) return false;
+    const account = this.getAccountByName(accountName);
+    if (!account) return false;
+    return account.type === 'credit' || this.inferAccountType(account.name) === 'credit';
+  }
+
+  // Despesa lançada em cartão de crédito: só existe como dívida da fatura
+  isCreditCardExpense(tx) {
+    return Boolean(tx && tx.type === 'expense' && this.isCreditCardAccount(tx.account));
+  }
+
+  // Dias de fechamento/vencimento do cartão (padrões: dia 25 e dia 5)
+  getCardInvoiceConfig(account) {
+    return {
+      closingDay: account && account.closingDay > 0 ? account.closingDay : 25,
+      dueDay: account && account.dueDay > 0 ? account.dueDay : 5
+    };
+  }
+
+  // Período da fatura (AAAA-MM) que recebe uma compra feita em dateStr
+  getInvoicePeriodForAccount(account, dateStr) {
+    const { closingDay } = this.getCardInvoiceConfig(account);
+    return this.getInvoicePeriodForDate(dateStr, closingDay);
+  }
+
+  // Identifica a qual período de fatura pertence uma compra no cartão
+  getInvoicePeriodForDate(dateStr, closingDay = 25) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length < 3) return dateStr.substring(0, 7);
+
+    let year = parts[0];
+    let month = parts[1];
+    const day = parts[2];
+
+    const actualClosingDay = closingDay > 0 ? closingDay : 25;
+
+    // Se a compra foi feita DEPOIS do fechamento da fatura, ela entra na fatura do mês seguinte
+    if (day > actualClosingDay) {
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+
+    return `${year}-${String(month).padStart(2, '0')}`;
+  }
+
+  getCreditCardDetails(accountName) {
+    const account = this.getAccountByName(accountName);
+    if (!account) return null;
+
+    const { closingDay, dueDay } = this.getCardInvoiceConfig(account);
+    const creditLimit = account.creditLimit > 0 ? account.creditLimit : 5000;
+
+    const cardTxs = this.data.transactions.filter(t => t.account === accountName && t.type === 'expense');
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const currentDay = today.getDate();
+
+    // Melhor dia de compra: nos 3 dias seguintes ao fechamento da fatura
+    let isBestDayToBuy = false;
+    if (currentDay > closingDay && currentDay <= closingDay + 3) {
+      isBestDayToBuy = true;
+    } else if (closingDay >= 28 && currentDay <= 2) {
+      isBestDayToBuy = true;
+    }
+
+    // Período da fatura aberta atual (ex: 2026-10)
+    let currentInvoicePeriod = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    if (currentDay > closingDay) {
+      let nextM = currentMonth + 1;
+      let nextY = currentYear;
+      if (nextM > 12) { nextM = 1; nextY += 1; }
+      currentInvoicePeriod = `${nextY}-${String(nextM).padStart(2, '0')}`;
+    }
+
+    // Próxima fatura
+    const currentInvoiceDateObj = new Date(Number(currentInvoicePeriod.split('-')[0]), Number(currentInvoicePeriod.split('-')[1]) - 1, 1);
+    const nextInvoiceDateObj = new Date(currentInvoiceDateObj.getFullYear(), currentInvoiceDateObj.getMonth() + 1, 1);
+    const nextInvoicePeriod = `${nextInvoiceDateObj.getFullYear()}-${String(nextInvoiceDateObj.getMonth() + 1).padStart(2, '0')}`;
+
+    let currentInvoiceTotal = 0;
+    let nextInvoiceTotal = 0;
+    let totalLimitUsed = 0;
+
+    // Agrupa transações por fatura
+    const invoiceMap = {};
+
+    cardTxs.forEach(tx => {
+      const invPeriod = this.getInvoicePeriodForDate(tx.date, closingDay);
+      if (!invoiceMap[invPeriod]) {
+        invoiceMap[invPeriod] = {
+          period: invPeriod,
+          total: 0,
+          paidTotal: 0,
+          pendingTotal: 0,
+          transactions: []
+        };
+      }
+
+      invoiceMap[invPeriod].transactions.push(tx);
+      invoiceMap[invPeriod].total += tx.amount;
+
+      if (tx.status === 'paid') {
+        invoiceMap[invPeriod].paidTotal += tx.amount;
+      } else {
+        invoiceMap[invPeriod].pendingTotal += tx.amount;
+        totalLimitUsed += tx.amount;
+      }
+
+      if (invPeriod === currentInvoicePeriod) {
+        currentInvoiceTotal += tx.amount;
+      } else if (invPeriod === nextInvoicePeriod) {
+        nextInvoiceTotal += tx.amount;
+      }
+    });
+
+    const limitAvailable = Math.max(0, creditLimit - totalLimitUsed);
+
+    return {
+      account,
+      closingDay,
+      dueDay,
+      creditLimit,
+      totalLimitUsed,
+      limitAvailable,
+      currentInvoicePeriod,
+      currentInvoiceTotal,
+      nextInvoicePeriod,
+      nextInvoiceTotal,
+      isBestDayToBuy,
+      invoiceMap
+    };
+  }
+
+  // Paga a fatura de um período: as compras do ciclo deixam de ser "futura"
+  // e passam a constar como pagas. O débito sai da conta de origem.
+  payCreditCardInvoice(accountName, period, paymentSourceAccount = 'Conta Corrente') {
+    const account = this.getAccountByName(accountName);
+    if (!account) return { countPaid: 0, totalPaid: 0 };
+
+    const cardTxs = this.data.transactions.filter(t => t.account === accountName && t.type === 'expense');
+
+    let countPaid = 0;
+    let totalPaid = 0;
+
+    cardTxs.forEach(t => {
+      if (this.getInvoicePeriodForAccount(account, t.date) === period && t.status !== 'paid') {
+        t.status = 'paid';
+        countPaid++;
+        totalPaid += t.amount;
+      }
+    });
+
+    if (totalPaid > 0) {
+      // Quitação é uma transferência da conta pagadora para o cartão:
+      // zera a dívida sem contabilizar como nova despesa (a compra já foi).
+      const source = paymentSourceAccount && paymentSourceAccount !== accountName
+        ? paymentSourceAccount
+        : 'Conta Corrente';
+
+      if (source !== accountName) {
+        this.addTransaction({
+          description: `Pagamento Fatura ${accountName} (${period})`,
+          amount: totalPaid,
+          type: 'transfer',
+          date: this.todayStr(),
+          account: source,
+          toAccount: accountName,
+          status: 'paid',
+          notes: `Quitação de ${countPaid} item(ns) da fatura do cartão`
+        });
+      } else {
+        this.saveData();
+      }
+    }
+
+    return { countPaid, totalPaid };
+  }
+
   updateTransaction(id, updatedFields) {
     const index = this.data.transactions.findIndex(t => t.id === id);
     if (index !== -1) {
-      this.data.transactions[index] = {
-        ...this.data.transactions[index],
+      const before = this.data.transactions[index];
+      const merged = {
+        ...before,
         ...updatedFields,
-        amount: parseFloat(updatedFields.amount ?? this.data.transactions[index].amount)
+        amount: parseFloat(updatedFields.amount ?? before.amount)
       };
+
+      // Compra no cartão só pode ser marcada como paga pelo pagamento da fatura
+      if (before.status === 'pending' && merged.status === 'paid' && this.isCreditCardExpense(merged)) {
+        merged.status = 'pending';
+      }
+
+      this.data.transactions[index] = merged;
       this.saveData();
       return this.data.transactions[index];
     }
@@ -1202,6 +1494,7 @@ class FinancialState {
     this.data.transactions.forEach(tx => {
       if (!tx.fixed || tx.status !== 'pending') return;
       if (String(tx.date || '') > today) return;
+      if (this.isCreditCardExpense(tx)) return; // espera a fatura
 
       const rule = this.data.recurring.find(r => r.id === tx.recurringId);
       if (rule && rule.status === 'pending') return;
@@ -1291,8 +1584,7 @@ class FinancialState {
     const account = this.getAccountByName(accountName);
     if (!account || account.type !== 'credit') return null;
 
-    const closingDay = account.closingDay || 1;
-    const dueDay = account.dueDay || closingDay;
+    const { closingDay, dueDay } = this.getCardInvoiceConfig(account);
     const { closingDate, dueDate } = this.computeInvoiceDates(refDate, closingDay, dueDay);
 
     const transactions = this.data.transactions.filter(t =>
@@ -1328,15 +1620,16 @@ class FinancialState {
       const account = this.getAccountByName(tx.account);
 
       // Cartão de crédito: agrupa por fatura (fechamento + vencimento)
-      if (tx.type === 'expense' && account && account.type === 'credit') {
-        const closingDay = account.closingDay || 1;
-        const dueDay = account.dueDay || closingDay;
+      if (this.isCreditCardExpense(tx)) {
+        const { closingDay, dueDay } = this.getCardInvoiceConfig(account);
         const { dueDate, closingDate } = this.computeInvoiceDates(tx.date || today, closingDay, dueDay);
+        const period = this.getInvoicePeriodForAccount(account, tx.date || today);
         const key = `${account.name}|${dueDate}`;
         if (!invoiceMap[key]) {
           invoiceMap[key] = {
             kind: 'invoice',
             account: account.name,
+            period,
             title: `Fatura ${account.name}`,
             dueDate,
             closingDate,
@@ -1414,14 +1707,16 @@ class FinancialState {
     };
   }
 
+  // Marca como pago. Compras no cartão de crédito são ignoradas aqui:
+  // elas só são quitadas junto com a fatura (payCreditCardInvoice).
   markTransactionsPaid(ids) {
     const set = new Set(Array.isArray(ids) ? ids : [ids]);
     let changed = 0;
     this.data.transactions.forEach(tx => {
-      if (set.has(tx.id) && tx.status !== 'paid') {
-        tx.status = 'paid';
-        changed += 1;
-      }
+      if (!set.has(tx.id) || tx.status === 'paid') return;
+      if (this.isCreditCardExpense(tx)) return;
+      tx.status = 'paid';
+      changed += 1;
     });
     if (changed > 0) this.saveData();
     return changed;

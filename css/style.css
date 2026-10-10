@@ -3600,9 +3600,15 @@ body.light-theme .toast {
 
   .modal-dialog {
     max-width: 100%;
+    width: 100%;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
-    max-height: 88vh;
+    overflow: clip; /* mantém border-radius sem travar scroll interno */
+    /* Layout flexível para header + body(scroll) + footer sempre visível */
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    max-height: 90dvh; /* dynamic viewport height para mobile */
     animation: slideUp 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -3612,13 +3618,42 @@ body.light-theme .toast {
   }
 
   .modal-dialog::before {
-    content: '';
-    display: block;
-    width: 40px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--border-color);
-    margin: 10px auto 4px;
+    display: none;
+  }
+
+  /* Se houver uma tag <form> encabeçando o modal, ela deve repassar o layout flex */
+  .modal-dialog > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Header não encolhe */
+  .modal-dialog .modal-header {
+    flex-shrink: 0;
+  }
+
+  /* Body ocupa o espaço restante e rola apenas verticalmente */
+  .modal-dialog .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    max-height: none; /* anula o max-height desktop */
+  }
+
+  /* Footer sempre colado na base — nunca sumindo */
+  .modal-dialog .modal-footer {
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    position: relative;
+    z-index: 10;
   }
 
   .intelligence-grid {
@@ -3629,4 +3664,25 @@ body.light-theme .toast {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ================= CARTÕES DE CRÉDITO 3D & FATURAS ================= */
+.credit-card-card {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.credit-card-card:hover {
+  transform: translateY(-4px) scale(1.015);
+}
+
+.btn-emerald {
+  background: #10b981;
+  color: #fff;
+  border: 1px solid #10b981;
+}
+
+.btn-emerald:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
 

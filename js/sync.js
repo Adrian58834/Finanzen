@@ -219,9 +219,23 @@
       return this.push();
     },
 
+    // Hora real da última alteração local (não apenas do último sync).
+    // Usada para decidir entre baixar da nuvem ou enviar: se o usuário editou
+    // depois do último sync, o local tem prioridade e não pode ser sobrescrito.
     lastLocalChangeTime() {
       const meta = this.loadMeta();
-      return new Date(meta.lastSyncedAt || 0).getTime();
+      const syncedAt = new Date(meta.lastSyncedAt || 0).getTime();
+
+      const state = window.financialState;
+      const key = (state && state.LAST_CHANGE_KEY) || 'finanzen_last_local_change';
+      let localChange = 0;
+      try {
+        localChange = parseInt(localStorage.getItem(key) || '0', 10) || 0;
+      } catch (e) {
+        localChange = 0;
+      }
+
+      return Math.max(syncedAt, localChange);
     },
 
     // Chamado pelo app sempre que os dados mudam (com debounce)

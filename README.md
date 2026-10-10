@@ -1,55 +1,96 @@
-# FinanZen 💎 - Sistema Completo de Gestão Financeira Pessoal
+# FinanZen - Sistema Completo de Gestão Financeira Pessoal
 
-O **FinanZen** é uma aplicação web moderna, sofisticada e intuitiva projetada para transformar o controle do seu dinheiro em uma experiência agradável, visual e eficiente.
+O **FinanZen** é uma aplicação web (PWA) moderna, sofisticada e intuitiva projetada para transformar o controle do seu dinheiro em uma experiência agradável, visual e eficiente.
+
+Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **opcional**.
 
 ---
 
-## 🚀 Principais Funcionalidades
+## Principais Funcionalidades
 
 1. **Dashboard Inteligente**:
    - Cartões de indicadores com Saldo Líquido, Total de Receitas, Total de Despesas e Taxa de Poupança.
    - Gráfico de **Fluxo de Caixa Mensal** (evolução de receitas vs despesas ao longo dos 12 meses).
    - Gráfico de **Distribuição de Gastos** (Donut interativo por categoria com porcentagens).
-   - Lista das transações mais recentes com status e valores destacados.
+   - Comparação com o mês anterior, previsão de gastos e lista das transações mais recentes.
 
 2. **Gestão de Transações**:
-   - Cadastro detalhado de **Receitas** e **Despesas** (descrição, valor, categoria, conta/cartão, status pago/pendente, notas).
-   - Filtros instantâneos por período (mês a mês ou geral), tipo (receita/despesa), categoria e status.
-   - Busca textual instantânea.
-   - Edição e exclusão de lançamentos.
+   - Cadastro detalhado de **Receitas** e **Despesas** (descrição, valor, categoria, conta/cartão, status pago/pendente, vencimento, notas).
+   - **Parcelamento no cartão** (até 24x) com pré-visualização do valor de cada parcela.
+   - **Lançamentos fixos/recorrentes** (mensal ou semanal) com escolha do dia do mês.
+   - Filtros instantâneos por período (mês a mês ou geral), tipo, categoria e status.
+   - Busca textual instantânea, edição e exclusão de lançamentos.
+   - **Transferências entre contas** com taxa opcional e recorrência.
 
-3. **Orçamentos & Tetos de Gastos**:
-   - Defina um teto máximo de gasto mensal por categoria (ex: Alimentação, Transporte, Lazer).
+3. **Cartões de Crédito**:
+   - Visão por cartão e por período de fatura.
+   - Regras de **fechamento** e **vencimento** por cartão, com cálculo automático de faturas.
+   - **Despesas lançadas no cartão viram "Fatura futura"** (pendentes): aparecem normalmente no sistema e compõem a fatura do cartão, mas só ficam marcadas como pagas quando a fatura é paga.
+   - **Pagamento da fatura** registra a transferência da conta pagadora para o cartão, quitando as compras do ciclo.
+
+4. **Orçamentos & Tetos de Gastos**:
+   - Teto máximo de gasto mensal por categoria.
    - Barras de progresso com inteligência visual:
      - **Verde**: Gastos sob controle.
      - **Amarelo**: Atenção (mais de 75% atingido).
      - **Vermelho**: Limite estourado (mais de 100%).
 
-4. **Metas & Cofrinhos Financeiros**:
+5. **Metas & Cofrinhos Financeiros**:
    - Guarde dinheiro para sonhos específicos (Viagens, Reserva de Emergência, Veículo, Imóvel).
    - Acompanhamento percentual do progresso com data limite.
    - Aporte rápido "+ Guardar" diretamente na meta.
 
-5. **Relatórios & Dicas**:
-   - Top 5 maiores despesas do período.
-   - Dicas práticas e consagradas de educação financeira (como a regra dos 50/30/20).
+6. **Relatórios & Educação Financeira**:
+   - Top 5 maiores despesas do período, evolução do patrimônio e **score financeiro**.
+   - Dicas práticas de educação financeira (como a regra 50/30/20).
 
-6. **Privacidade e Dados 100% Seus**:
-   - Seus dados ficam armazenados exclusivamente no seu navegador via `localStorage`.
-   - **Download de Backup Completo (JSON)**: Salve seus dados em segurança.
-   - **Restauração de Backup (JSON)**: Importe seus dados a qualquer momento ou transfira de máquina.
-   - **Exportação para Planilhas (CSV)**: Compatível com Excel e Google Sheets.
-   - **Modo Escuro (Dark Mode)** e **Modo Claro (Light Mode)** com memória de preferência.
+7. **Privacidade e Dados Seus**:
+   - Dados armazenados no navegador via `localStorage`.
+   - **Backup completo (JSON)** para download e restauração.
+   - **Exportação para planilhas (CSV)** compatível com Excel e Google Sheets.
+   - **Modo Escuro** e **Modo Claro** com memória de preferência.
+
+8. **PWA - Instalável e Offline**:
+   - Instalável no celular (Android/iOS) e no PC pelo navegador.
+   - Service Worker guarda o app para funcionar sem internet após a primeira visita.
+
+9. **Sincronização em Nuvem (opcional)**:
+   - Login por e-mail e senha via **Supabase**, com sincronização automática entre aparelhos.
+   - Estratégia *last-write-wins*: o registro mais recente vence.
+   - Sem configurar o Supabase, o app segue 100% local e nenhum dado sai do dispositivo.
 
 ---
 
-## 🛠️ Como Executar
+## Como Executar
 
-Não é necessário instalar nenhum servidor ou banco de dados!
+Não é necessário instalar nenhum servidor ou banco de dados.
 
-Basta:
-1. Abrir o arquivo `index.html` diretamente em qualquer navegador moderno (Chrome, Edge, Firefox, Brave, Safari), **ou**
-2. Utilizar extensões como *Live Server* no VS Code / Antigravity IDE.
+1. Abra o arquivo `index.html` diretamente em qualquer navegador moderno (Chrome, Edge, Firefox, Brave, Safari), **ou**
+2. Utilize extensões como *Live Server* no VS Code.
+
+Para publicar, verifique [DEPLOY.md](DEPLOY.md) (guia completo) e [GUIA-RAPIDO.md](GUIA-RAPIDO.md) (resumo de 1 página).
+
+---
+
+## Desenvolvimento
+
+```bash
+npm test        # testes de negócio, sync e integridade (node:test)
+npm run check   # verificação de sintaxe de todos os JS
+```
+
+### Estrutura
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `js/state.js` | Lógica de negócio e persistência (localStorage) |
+| `js/app.js` | Interface e renderização |
+| `js/charts.js` | Gráficos (Chart.js) |
+| `js/sync.js` | Sincronização com Supabase |
+| `js/sync-config.js` | URL e chave pública do Supabase (opcional) |
+| `sw.js` | Service Worker (cache e modo offline) |
+| `tests/` | Testes automatizados |
+| `supabase/schema.sql` | Tabela e políticas RLS da nuvem |
 
 ---
 

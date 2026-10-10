@@ -352,6 +352,10 @@ document.addEventListener('DOMContentLoaded', () => {
           titleElem.textContent = 'Transações';
           subtitleElem.textContent = 'Gerencie todas as suas receitas e despesas com filtros';
           break;
+        case 'cards':
+          titleElem.textContent = 'Cartões de Crédito';
+          subtitleElem.textContent = 'Acompanhe faturas abertas, limite disponível, compras parceladas e o melhor dia de compra';
+          break;
         case 'budgets':
           titleElem.textContent = 'Orçamentos Mensais';
           subtitleElem.textContent = 'Monitore seus tetos de gastos por categoria';
@@ -421,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderRecentTransactions();
       this.renderAccountBalances();
       this.renderFullTransactionsTable();
+      this.renderCreditCards();
       this.renderBudgets();
       this.renderGoals();
       this.renderCharts();
@@ -479,6 +484,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (daysDiff === 0) return 'Vence hoje';
       if (daysDiff === 1) return 'Vence amanhã';
       return `Vence em ${daysDiff} dias`;
+    },
+
+    // Status exibido de um lançamento. Compra no cartão de crédito fica como
+    // "Fatura futura" até a fatura correspondente ser paga.
+    txStatusMeta(tx) {
+      if (tx && tx.status === 'paid') return { label: 'Pago', className: 'status-paid' };
+      if (window.financialState.isCreditCardExpense(tx)) {
+        return { label: 'Fatura futura', className: 'status-pending' };
+      }
+      return { label: 'Pendente', className: 'status-pending' };
     },
 
     dueBadgeHTML(tx) {
@@ -581,7 +596,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="due-item-side">
             <span class="tx-amount ${amountClass}">${sign} ${this.formatCurrency(item.amount)}</span>
             <button class="btn btn-primary btn-sm due-action-btn" type="button"
-              data-tx-ids="${txIds}" data-kind="${item.kind}">
+              data-tx-ids="${txIds}" data-kind="${item.kind}"
+              data-account="${this.escapeHtml(item.account || '')}" data-period="${this.escapeHtml(item.period || '')}">
               <i class="${actionIcon}"></i> ${actionLabel}
             </button>
           </div>
@@ -646,9 +662,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (overlay) overlay.classList.remove('open');
     },
 
-    handleDueAction(txIds, kind) {
+    handleDueAction(txIds, kind, account = '', period = '') {
       const ids = String(txIds || '').split(',').filter(Boolean);
       if (ids.length === 0) return;
+
+      // Fatura: quita o ciclo inteiro (compras viram "pagas" e o débito sai
+      // da conta informada). Compras no cartão nunca são pagas isoladamente.
+      if (kind === 'invoice') {
+        if (!account || !period) {
+          this.showToast('Não foi possível identificar a fatura.', 'warning');
+          return;
+        }
+        const res = window.financialState.payCreditCardInvoice(account, period);
+        if (res.countPaid === 0) {
+          this.showToast('Nada para atualizar.', 'info');
+          return;
+        }
+        this.showToast(`Fatura ${account} paga: ${this.formatCurrency(res.totalPaid)}`, 'success');
+        this.renderAll();
+        return;
+      }
 
       const changed = window.financialState.markTransactionsPaid(ids);
       if (changed === 0) {
@@ -658,7 +691,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const messages = {
         income: 'Recebimento confirmado!',
-        invoice: 'Fatura marcada como paga!',
         transfer: 'Transferência concluída!'
       };
       this.showToast(messages[kind] || 'Lançamento marcado como pago!', 'success');
@@ -729,7 +761,8 @@ document.addEventListener('DOMContentLoaded', () => {
         body.addEventListener('click', (e) => {
           const btn = e.target.closest('.due-action-btn');
           if (!btn) return;
-          this.handleDueAction(btn.getAttribute('data-tx-ids'), btn.getAttribute('data-kind'));
+          this.handleDueAction(btn.getAttribute('data-tx-ids'), btn.getAttribute('data-kind'),
+          btn.getAttribute('data-account'), btn.getAttribute('data-period'));
         });
       }
 
@@ -976,8 +1009,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isIncome = tx.type === 'income';
         const sign = isTransfer ? '' : (isIncome ? '+ ' : '- ');
         const amtClass = isTransfer ? 'tx-transfer' : (isIncome ? 'income' : 'expense');
-        const statusLabel = tx.status === 'paid' ? 'Pago' : 'Pendente';
-        const statusClass = tx.status === 'paid' ? 'status-paid' : 'status-pending';
+        const { label: statusLabel, className: statusClass } = this.txStatusMeta(tx);
 
         return `
           <tr>
@@ -1120,8 +1152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isIncome = tx.type === 'income';
         const sign = isTransfer ? '' : (isIncome ? '+ ' : '- ');
         const amtClass = isTransfer ? 'tx-transfer' : (isIncome ? 'income' : 'expense');
-        const statusLabel = tx.status === 'paid' ? 'Pago' : 'Pendente';
-        const statusClass = tx.status === 'paid' ? 'status-paid' : 'status-pending';
+        const { label: statusLabel, className: statusClass } = this.txStatusMeta(tx);
         const accountLabel = isTransfer
           ? `${tx.account || '?'} → ${tx.toAccount || '?'}${tx.fee ? ` (taxa ${this.formatCurrency(tx.fee)})` : ''}`
           : (tx.account || 'Conta Principal');
@@ -2184,6 +2215,7 @@ document.addEventListener('DOMContentLoaded', () => {
           toggleIncomeBtn.className = 'type-toggle-btn active income';
           toggleExpenseBtn.className = 'type-toggle-btn';
           this.populateTxCategories('income');
+          this.updateTxStatusLock();
         });
 
         toggleExpenseBtn.addEventListener('click', () => {
@@ -2191,6 +2223,7 @@ document.addEventListener('DOMContentLoaded', () => {
           toggleExpenseBtn.className = 'type-toggle-btn active expense';
           toggleIncomeBtn.className = 'type-toggle-btn';
           this.populateTxCategories('expense');
+          this.updateTxStatusLock();
         });
       }
 
@@ -2417,6 +2450,66 @@ document.addEventListener('DOMContentLoaded', () => {
           this.showToast(`Aporte de ${this.formatCurrency(amount)} adicionado!`, 'success');
         });
       }
+
+      // Submissão do Cartão de Crédito
+      const cardForm = document.getElementById('credit-card-form');
+      if (cardForm) {
+        cardForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.handleSaveCreditCard();
+        });
+      }
+
+      const addCardBtn = document.getElementById('add-credit-card-btn');
+      if (addCardBtn) {
+        addCardBtn.addEventListener('click', () => this.openNewCreditCardModal());
+      }
+
+      const payInvoiceBtn = document.getElementById('pay-invoice-btn');
+      if (payInvoiceBtn) {
+        payInvoiceBtn.addEventListener('click', () => {
+          if (!this.selectedCreditCardName || !this.selectedInvoicePeriod) return;
+          const accountName = this.selectedCreditCardName;
+          const period = this.selectedInvoicePeriod;
+
+          const sourceAccount = prompt(`Pagar Fatura de ${accountName} (${this.shortPeriodLabel(period)}).\n\nInforme a conta de origem para débito:`, 'Conta Corrente');
+          if (sourceAccount === null) return;
+
+          const res = window.financialState.payCreditCardInvoice(accountName, period, sourceAccount.trim() || 'Conta Corrente');
+          if (res.countPaid > 0) {
+            this.showToast(`Fatura quitada! ${res.countPaid} item(ns) pagos (${this.formatCurrency(res.totalPaid)}).`, 'success');
+            this.renderAll();
+          } else {
+            this.showToast('Nenhum item pendente encontrado nesta fatura.', 'info');
+          }
+        });
+      }
+
+      const periodSelect = document.getElementById('invoice-period-select');
+      if (periodSelect) {
+        periodSelect.addEventListener('change', (e) => {
+          this.selectedInvoicePeriod = e.target.value;
+          this.renderInvoiceDetails();
+        });
+      }
+
+      // Atualização em tempo real das parcelas no modal de transação
+      const txAccountInput = document.getElementById('tx-account-input');
+      const txAmountInput = document.getElementById('tx-amount-input');
+      const txInstallmentsSelect = document.getElementById('tx-installments-select');
+
+      if (txAccountInput) {
+        txAccountInput.addEventListener('change', () => {
+          this.updateTxInstallmentsVisibility();
+          this.updateTxStatusLock();
+        });
+      }
+      if (txAmountInput) {
+        txAmountInput.addEventListener('input', () => this.updateInstallmentPreview());
+      }
+      if (txInstallmentsSelect) {
+        txInstallmentsSelect.addEventListener('change', () => this.updateInstallmentPreview());
+      }
     },
 
 populateTxCategories(type, selectedCatId = null) {
@@ -2621,30 +2714,42 @@ populateTxCategories(type, selectedCatId = null) {
     openNewTxModal(type = 'expense') {
       this.editingTxId = null;
       this.editingRecurringId = null;
-      document.getElementById('tx-form').reset();
-      document.getElementById('tx-modal-title').textContent = 'Nova Transação';
+      const form = document.getElementById('tx-form');
+      if (form) form.reset();
+
+      const titleEl = document.getElementById('tx-modal-title');
+      if (titleEl) titleEl.textContent = 'Nova Transação';
 
       // Data padrão de hoje
-      document.getElementById('tx-date-input').value = new Date().toISOString().split('T')[0];
+      const dateInput = document.getElementById('tx-date-input');
+      if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
 
       // Ajustar toggle de tipo
       this.activeTxType = type;
       const toggleIncome = document.getElementById('tx-toggle-income');
       const toggleExpense = document.getElementById('tx-toggle-expense');
       if (type === 'income') {
-        toggleIncome.className = 'type-toggle-btn active income';
-        toggleExpense.className = 'type-toggle-btn';
+        if (toggleIncome) toggleIncome.className = 'type-toggle-btn active income';
+        if (toggleExpense) toggleExpense.className = 'type-toggle-btn';
       } else {
-        toggleExpense.className = 'type-toggle-btn active expense';
-        toggleIncome.className = 'type-toggle-btn';
+        if (toggleExpense) toggleExpense.className = 'type-toggle-btn active expense';
+        if (toggleIncome) toggleIncome.className = 'type-toggle-btn';
       }
+
       this.populateTxCategories(type);
-      this.populateTxAccountSelect('Conta Corrente');
+      const accs = window.financialState.getAccountNames();
+      this.populateTxAccountSelect(accs[0] || 'Conta Corrente');
+
+      const instSelect = document.getElementById('tx-installments-select');
+      if (instSelect) instSelect.value = '1';
 
       const todayDay = new Date().getDate();
-      document.getElementById('tx-repeat-select').value = 'none';
-      document.getElementById('tx-repeat-day-input').value = todayDay > 28 ? 28 : todayDay;
+      const repeatSelect = document.getElementById('tx-repeat-select');
+      const repeatDayInput = document.getElementById('tx-repeat-day-input');
+      if (repeatSelect) repeatSelect.value = 'none';
+      if (repeatDayInput) repeatDayInput.value = todayDay > 28 ? 28 : todayDay;
       this.updateTxRepeatFields('none');
+      this.updateTxInstallmentsVisibility();
 
       this.openModal('modal-transaction');
     },
@@ -2659,7 +2764,9 @@ populateTxCategories(type, selectedCatId = null) {
       }
 
       this.editingTxId = id;
-      document.getElementById('tx-modal-title').textContent = 'Editar Transação';
+      const titleEl = document.getElementById('tx-modal-title');
+      if (titleEl) titleEl.textContent = 'Editar Transação';
+
       document.getElementById('tx-desc-input').value = tx.description;
       document.getElementById('tx-amount-input').value = tx.amount;
       document.getElementById('tx-date-input').value = tx.date;
@@ -2671,14 +2778,16 @@ populateTxCategories(type, selectedCatId = null) {
       const toggleIncome = document.getElementById('tx-toggle-income');
       const toggleExpense = document.getElementById('tx-toggle-expense');
       if (tx.type === 'income') {
-        toggleIncome.className = 'type-toggle-btn active income';
-        toggleExpense.className = 'type-toggle-btn';
+        if (toggleIncome) toggleIncome.className = 'type-toggle-btn active income';
+        if (toggleExpense) toggleExpense.className = 'type-toggle-btn';
       } else {
-        toggleExpense.className = 'type-toggle-btn active expense';
-        toggleIncome.className = 'type-toggle-btn';
+        if (toggleExpense) toggleExpense.className = 'type-toggle-btn active expense';
+        if (toggleIncome) toggleIncome.className = 'type-toggle-btn';
       }
+
       this.populateTxCategories(tx.type, tx.category);
       this.populateTxAccountSelect(tx.account || 'Conta Corrente');
+      this.updateTxInstallmentsVisibility();
 
       // Se a transação já pertence a uma regra, exibe a recorrência atual
       const rule = tx.recurringId
@@ -2779,27 +2888,385 @@ populateTxCategories(type, selectedCatId = null) {
           this.showToast('Transação atualizada e marcada como fixa.', 'success');
         }
       } else {
-        window.financialState.addTransaction(txPayload);
-        if (repeat === 'monthly' || repeat === 'weekly') {
-          this.upsertRecurring({
-            type: this.activeTxType,
-            description: desc,
-            amount,
-            category,
-            account,
-            date,
-            repeat,
-            repeatDay,
-            status
-          });
-          this.showToast('Lançamento fixo salvo: será gerado automaticamente nos próximos períodos.', 'info');
+        const installmentsVal = parseInt(document.getElementById('tx-installments-select')?.value || '1', 10);
+        const selectedAcc = window.financialState.getAccountByName(account);
+        const isCreditCard = selectedAcc && (selectedAcc.type === 'credit' || window.financialState.inferAccountType(account) === 'credit');
+
+        if (this.activeTxType === 'expense' && isCreditCard && installmentsVal > 1) {
+          window.financialState.addInstallmentTransactions(txPayload, installmentsVal);
+          this.showToast(`Compra parcelada em ${installmentsVal}x registrada com sucesso!`, 'success');
         } else {
-          this.showToast('Nova transação registrada!', 'success');
+          window.financialState.addTransaction(txPayload);
+          if (repeat === 'monthly' || repeat === 'weekly') {
+            this.upsertRecurring({
+              type: this.activeTxType,
+              description: desc,
+              amount,
+              category,
+              account,
+              date,
+              repeat,
+              repeatDay,
+              status
+            });
+            this.showToast('Lançamento fixo salvo: será gerado automaticamente nos próximos períodos.', 'info');
+          } else {
+            this.showToast('Nova transação registrada!', 'success');
+          }
         }
       }
 
       this.closeModal('modal-transaction');
       this.renderAll();
+    },
+
+    // --- Módulo Avançado de Cartões de Crédito ---
+    selectedCreditCardName: null,
+    selectedInvoicePeriod: null,
+
+    renderCreditCards() {
+      const grid = document.getElementById('credit-cards-grid');
+      if (!grid) return;
+
+      const state = window.financialState;
+      const creditAccounts = state.getCreditCardAccounts();
+
+      if (creditAccounts.length === 0) {
+        grid.innerHTML = `
+          <div class="section-card" style="grid-column: 1 / -1; text-align: center; padding: 36px 20px;">
+            <i class="ri-bank-card-line" style="font-size: 2.8rem; color: var(--text-muted); margin-bottom: 12px; display: block;"></i>
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Nenhum cartão de crédito cadastrado</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 420px; margin: 0 auto 16px;">
+              Cadastre cartões como Nubank, Itaú, XP ou Inter para gerenciar faturas, parcelamentos em 12x e o melhor dia de compra.
+            </p>
+            <button id="empty-add-card-btn" class="btn btn-primary" type="button">
+              <i class="ri-add-line"></i> Cadastrar Primeiro Cartão
+            </button>
+          </div>
+        `;
+        const invoiceSection = document.getElementById('card-invoice-section');
+        if (invoiceSection) invoiceSection.style.display = 'none';
+
+        const btn = document.getElementById('empty-add-card-btn');
+        if (btn) btn.addEventListener('click', () => this.openNewCreditCardModal());
+        return;
+      }
+
+      const invoiceSection = document.getElementById('card-invoice-section');
+      if (invoiceSection) invoiceSection.style.display = 'block';
+
+      if (!this.selectedCreditCardName || !creditAccounts.some(a => a.name === this.selectedCreditCardName)) {
+        this.selectedCreditCardName = creditAccounts[0].name;
+      }
+
+      grid.innerHTML = creditAccounts.map(acc => {
+        const details = state.getCreditCardDetails(acc.name);
+        const isSelected = acc.name === this.selectedCreditCardName;
+        const style = acc.style || (acc.name.toLowerCase().includes('nu') ? 'purple' : (acc.name.toLowerCase().includes('ita') || acc.name.toLowerCase().includes('inter') ? 'orange' : (acc.name.toLowerCase().includes('xp') ? 'black' : 'blue')));
+
+        const pctUsed = details.creditLimit > 0 ? Math.min(100, Math.round((details.totalLimitUsed / details.creditLimit) * 100)) : 0;
+        const progressColor = pctUsed > 85 ? '#ef4444' : (pctUsed > 60 ? '#f59e0b' : '#10b981');
+
+        return `
+          <div class="credit-card-card" style="
+            background: ${this.getCardGradient(style)};
+            border-radius: 18px;
+            padding: 22px;
+            color: #fff;
+            position: relative;
+            box-shadow: ${isSelected ? '0 12px 28px rgba(99, 102, 241, 0.45), 0 0 0 2px var(--accent-primary)' : '0 6px 18px rgba(0,0,0,0.25)'};
+            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+            overflow: hidden;
+          ">
+            ${details.isBestDayToBuy ? `<div style="position: absolute; top: 12px; right: 12px; background: rgba(16, 185, 129, 0.9); font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.3);"><i class="ri-fire-fill"></i> Melhor Dia de Compra</div>` : ''}
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+              <span style="font-size: 1.1rem; font-weight: 800; letter-spacing: -0.01em;">${this.escapeHtml(acc.name)}</span>
+              <i class="ri-bank-card-2-line" style="font-size: 1.4rem; opacity: 0.85;"></i>
+            </div>
+
+            <div style="font-size: 0.72rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;">Fatura Aberta</div>
+            <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 14px;">${this.formatCurrency(details.currentInvoiceTotal)}</div>
+
+            <div style="margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; opacity: 0.9; margin-bottom: 4px;">
+                <span>Usado (${pctUsed}%)</span>
+                <span>${this.formatCurrency(details.limitAvailable)} livre</span>
+              </div>
+              <div style="height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;">
+                <div style="height: 100%; width: ${pctUsed}%; background: ${progressColor}; border-radius: 3px; transition: width 0.5s ease;"></div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; opacity: 0.85; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.15);">
+              <span>Fecha dia ${details.closingDay}</span>
+              <span>Vence dia ${details.dueDay}</span>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 14px;">
+              <button class="btn btn-sm btn-card-select" type="button" data-card-name="${this.escapeHtml(acc.name)}" style="flex: 1; background: ${isSelected ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)'}; border: none; color: #fff; font-size: 0.78rem; font-weight: 600;">
+                <i class="ri-eye-line"></i> ${isSelected ? 'Fatura Selecionada' : 'Ver Fatura'}
+              </button>
+              <button class="btn btn-sm btn-card-edit" type="button" data-card-name="${this.escapeHtml(acc.name)}" style="background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 0.78rem;">
+                <i class="ri-pencil-line"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Adiciona eventos nos botões dos cartões
+      grid.querySelectorAll('.btn-card-select').forEach(b => {
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.selectedCreditCardName = b.dataset.cardName;
+          this.selectedInvoicePeriod = null;
+          this.renderCreditCards();
+        });
+      });
+
+      grid.querySelectorAll('.btn-card-edit').forEach(b => {
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openEditCreditCardModal(b.dataset.cardName);
+        });
+      });
+
+      this.renderInvoiceDetails();
+    },
+
+    getCardGradient(style) {
+      switch (style) {
+        case 'purple': return 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)';
+        case 'orange': return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
+        case 'black': return 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)';
+        case 'emerald': return 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        case 'blue': default: return 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)';
+      }
+    },
+
+    renderInvoiceDetails() {
+      if (!this.selectedCreditCardName) return;
+
+      const state = window.financialState;
+      const details = state.getCreditCardDetails(this.selectedCreditCardName);
+      if (!details) return;
+
+      const cardNameEl = document.getElementById('invoice-card-name');
+      if (cardNameEl) cardNameEl.textContent = `Fatura: ${this.selectedCreditCardName}`;
+
+      const closingEl = document.getElementById('invoice-closing-val');
+      if (closingEl) closingEl.textContent = `Dia ${details.closingDay}`;
+
+      const dueEl = document.getElementById('invoice-due-val');
+      if (dueEl) dueEl.textContent = `Dia ${details.dueDay}`;
+
+      const bestDayEl = document.getElementById('invoice-best-day-val');
+      if (bestDayEl) {
+        const bestDay = details.closingDay >= 28 ? 1 : details.closingDay + 1;
+        bestDayEl.textContent = `Dia ${bestDay}`;
+      }
+
+      // Preenche o seletor de períodos de fatura
+      const periodSelect = document.getElementById('invoice-period-select');
+      if (periodSelect) {
+        const periods = Object.keys(details.invoiceMap).sort().reverse();
+        if (!periods.includes(details.currentInvoicePeriod)) {
+          periods.unshift(details.currentInvoicePeriod);
+        }
+
+        if (!this.selectedInvoicePeriod || !periods.includes(this.selectedInvoicePeriod)) {
+          this.selectedInvoicePeriod = details.currentInvoicePeriod;
+        }
+
+        periodSelect.innerHTML = periods.map(p => {
+          const isCurrent = p === details.currentInvoicePeriod;
+          const isNext = p === details.nextInvoicePeriod;
+          const label = `${this.shortPeriodLabel(p)}${isCurrent ? ' (Fatura Aberta)' : (isNext ? ' (Próxima)' : '')}`;
+          return `<option value="${p}" ${p === this.selectedInvoicePeriod ? 'selected' : ''}>${label}</option>`;
+        }).join('');
+      }
+
+      const invData = details.invoiceMap[this.selectedInvoicePeriod] || { total: 0, transactions: [], pendingTotal: 0 };
+
+      const totalValEl = document.getElementById('invoice-total-val');
+      if (totalValEl) totalValEl.textContent = this.formatCurrency(invData.total);
+
+      const statusBadge = document.getElementById('invoice-status-badge');
+      if (statusBadge) {
+        if (invData.pendingTotal > 0) {
+          statusBadge.className = 'badge badge-warning';
+          statusBadge.textContent = 'Fatura Aberta / Pendente';
+          statusBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+          statusBadge.style.color = '#f59e0b';
+        } else {
+          statusBadge.className = 'badge badge-paid';
+          statusBadge.textContent = 'Fatura Paga';
+          statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+          statusBadge.style.color = '#10b981';
+        }
+      }
+
+      const tbody = document.getElementById('invoice-transactions-tbody');
+      if (!tbody) return;
+
+      if (!invData.transactions || invData.transactions.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state" style="padding: 24px; text-align: center;">
+              <i class="ri-check-line empty-state-icon" style="font-size: 1.8rem; color: var(--text-muted);"></i>
+              <p class="empty-state-title" style="font-size: 0.9rem;">Nenhum lançamento nesta fatura</p>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = invData.transactions.map(tx => {
+        const cat = state.getCategoryById(tx.category);
+        const statusPill = this.txStatusMeta(tx);
+        const installmentInfo = tx.installmentTotal ? `${tx.installmentCurrent}/${tx.installmentTotal}` : 'À vista';
+
+        return `
+          <tr>
+            <td data-label="Data">${this.formatDate(tx.date)}</td>
+            <td data-label="Descrição">
+              <strong>${this.escapeHtml(tx.description)}</strong>
+              ${tx.notes ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${this.escapeHtml(tx.notes)}</div>` : ''}
+            </td>
+            <td data-label="Categoria">
+              <span class="tx-category-badge">
+                <i class="${cat.icon}" style="color: ${cat.color};"></i>
+                ${this.escapeHtml(cat.name)}
+              </span>
+            </td>
+            <td data-label="Parcela">
+              <span class="badge" style="background: var(--bg-tertiary); font-size: 0.75rem;">${installmentInfo}</span>
+            </td>
+            <td data-label="Status">
+              <span class="status-pill ${statusPill.className}">${statusPill.label}</span>
+            </td>
+            <td data-label="Valor" style="text-align: right; font-weight: 700; color: var(--expense);">
+              - ${this.formatCurrency(tx.amount)}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    },
+
+    openNewCreditCardModal() {
+      document.getElementById('card-modal-title').textContent = 'Novo Cartão de Crédito';
+      document.getElementById('card-original-name').value = '';
+      document.getElementById('card-name-input').value = '';
+      document.getElementById('card-limit-input').value = '5000';
+      document.getElementById('card-style-select').value = 'purple';
+      document.getElementById('card-closing-input').value = '25';
+      document.getElementById('card-due-input').value = '5';
+      this.openModal('modal-credit-card');
+    },
+
+    openEditCreditCardModal(name) {
+      const acc = window.financialState.getAccountByName(name);
+      if (!acc) return;
+
+      document.getElementById('card-modal-title').textContent = 'Editar Cartão de Crédito';
+      document.getElementById('card-original-name').value = acc.name;
+      document.getElementById('card-name-input').value = acc.name;
+      document.getElementById('card-limit-input').value = acc.creditLimit || 5000;
+      document.getElementById('card-style-select').value = acc.style || 'purple';
+      document.getElementById('card-closing-input').value = acc.closingDay || 25;
+      document.getElementById('card-due-input').value = acc.dueDay || 5;
+      this.openModal('modal-credit-card');
+    },
+
+    handleSaveCreditCard() {
+      const origName = document.getElementById('card-original-name').value;
+      const name = document.getElementById('card-name-input').value.trim();
+      const limit = parseFloat(document.getElementById('card-limit-input').value) || 0;
+      const style = document.getElementById('card-style-select').value;
+      const closingDay = parseInt(document.getElementById('card-closing-input').value, 10) || 25;
+      const dueDay = parseInt(document.getElementById('card-due-input').value, 10) || 5;
+
+      if (!name) {
+        this.showToast('Informe o nome do cartão.', 'warning');
+        return;
+      }
+
+      if (origName) {
+        window.financialState.updateAccount(origName, {
+          name,
+          type: 'credit',
+          creditLimit: limit,
+          closingDay,
+          dueDay,
+          style
+        });
+        this.showToast('Cartão atualizado com sucesso!', 'success');
+      } else {
+        window.financialState.addAccount({
+          name,
+          type: 'credit',
+          creditLimit: limit,
+          closingDay,
+          dueDay,
+          style
+        });
+        this.showToast('Novo cartão adicionado com sucesso!', 'success');
+      }
+
+      this.selectedCreditCardName = name;
+      this.closeModal('modal-credit-card');
+      this.renderAll();
+    },
+
+    // Compra em cartão de crédito não pode ser marcada como paga na mão:
+    // ela entra como "Fatura futura" e só é quitada pelo pagamento da fatura.
+    updateTxStatusLock() {
+      const select = document.getElementById('tx-status-select');
+      if (!select) return;
+      const hint = document.getElementById('tx-status-hint');
+      const accountSelect = document.getElementById('tx-account-input');
+      const accountName = accountSelect ? accountSelect.value : '';
+      const lock = this.activeTxType === 'expense' && window.financialState.isCreditCardAccount(accountName);
+
+      select.disabled = lock;
+      if (hint) hint.style.display = lock ? '' : 'none';
+      if (lock && !this.editingTxId) select.value = 'pending';
+    },
+
+    updateTxInstallmentsVisibility() {
+      const group = document.getElementById('tx-installments-group');
+      this.updateTxStatusLock();
+      if (!group) return;
+      const accountSelect = document.getElementById('tx-account-input');
+      if (!accountSelect) return;
+
+      const accountName = accountSelect.value;
+      const acc = window.financialState.getAccountByName(accountName);
+      const isCredit = acc && (acc.type === 'credit' || window.financialState.inferAccountType(accountName) === 'credit');
+
+      if (!this.editingTxId && this.activeTxType === 'expense' && isCredit) {
+        group.style.display = 'flex';
+        this.updateInstallmentPreview();
+      } else {
+        group.style.display = 'none';
+      }
+    },
+
+    updateInstallmentPreview() {
+      const preview = document.getElementById('tx-installment-preview');
+      const amountInput = document.getElementById('tx-amount-input');
+      const select = document.getElementById('tx-installments-select');
+      if (!preview || !amountInput || !select) return;
+
+      const total = parseFloat(amountInput.value) || 0;
+      const count = parseInt(select.value, 10) || 1;
+      if (total <= 0 || count <= 1) {
+        preview.value = '1x à vista';
+      } else {
+        const perMonth = total / count;
+        preview.value = `${this.formatCurrency(perMonth)} /mês`;
+      }
     },
 
     confirmDeleteTx(id) {
