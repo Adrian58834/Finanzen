@@ -15,7 +15,7 @@
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
   <!-- Estilos da Aplicação -->
-  <link rel="stylesheet" href="css/style.css?v=1.5.2">
+  <link rel="stylesheet" href="css/style.css?v=1.6.2">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
@@ -89,7 +89,7 @@
         <li>
           <a href="#settings" class="nav-item" data-tab="settings">
             <i class="ri-settings-4-line"></i>
-            <span>Backup & Dados</span>
+            <span>Conta &amp; Ajustes</span>
           </a>
         </li>
       </ul>
@@ -641,24 +641,103 @@
           </div>
         </section>
 
-        <!-- ================= ABA 6: BACKUP & CONFIGURAÇÕES ================= -->
+        <!-- ================= ABA 6: CONTA & CONFIGURAÇÕES ================= -->
         <section id="tab-settings" class="tab-content">
           <div class="settings-wrap">
-
-            <!-- Cabeçalho -->
-            <div class="settings-hero">
-              <div class="settings-hero-icon"><i class="ri-database-2-line"></i></div>
-              <div>
-                <h3>Backup &amp; Dados</h3>
-                <p>Por padrão, o FinanZen funciona somente no seu navegador com armazenamento local (<code>localStorage</code>). Dados só saem do dispositivo quando você ativa voluntariamente a nuvem ou uma futura conexão Open Finance.</p>
+            <div id="settings-home" class="settings-home">
+              <!-- Cabeçalho -->
+              <div class="settings-hero">
+                <div class="settings-hero-icon"><i class="ri-settings-4-line"></i></div>
+                <div>
+                  <h3>Conta e configurações</h3>
+                  <p>Escolha um bloco para abrir e gerenciar somente a função desejada.</p>
+                </div>
               </div>
-              <button class="btn btn-primary pwa-install-btn" type="button" style="display: none; margin-left: auto;">
-                <i class="ri-smartphone-line"></i> Instalar app
-              </button>
+
+              <div class="settings-hub-heading">
+                <div>
+                  <span>Central de ajustes</span>
+                  <p>Cada área abre separadamente para deixar a navegação mais simples.</p>
+                </div>
+              </div>
+
+              <nav class="settings-block-nav" aria-label="Áreas das configurações">
+                <button type="button" data-settings-target="settings-account" aria-controls="settings-account">
+                  <span class="settings-nav-icon"><i class="ri-user-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Conta e acesso</strong><small>Login, sincronização e segurança</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-summary" aria-controls="settings-summary">
+                  <span class="settings-nav-icon"><i class="ri-bar-chart-box-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Resumo dos dados</strong><small>Itens salvos e armazenamento</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-export" aria-controls="settings-export">
+                  <span class="settings-nav-icon"><i class="ri-download-2-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Exportar backup</strong><small>Baixar cópia JSON ou planilha</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-import" aria-controls="settings-import">
+                  <span class="settings-nav-icon"><i class="ri-upload-2-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Restaurar backup</strong><small>Importar dados de um arquivo</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-recurring" aria-controls="settings-recurring">
+                  <span class="settings-nav-icon"><i class="ri-repeat-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Recorrentes</strong><small>Gerenciar lançamentos automáticos</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-currency" aria-controls="settings-currency">
+                  <span class="settings-nav-icon"><i class="ri-money-dollar-circle-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Moeda</strong><small>Formato dos valores do sistema</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-categories" aria-controls="settings-categories">
+                  <span class="settings-nav-icon"><i class="ri-price-tag-3-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Categorias</strong><small>Criar e organizar classificações</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-accounts" aria-controls="settings-accounts">
+                  <span class="settings-nav-icon"><i class="ri-bank-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Contas e instituições</strong><small>Bancos, carteiras e cartões</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-open-finance" aria-controls="settings-open-finance">
+                  <span class="settings-nav-icon"><i class="ri-links-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Open Finance</strong><small>Conexões e coleta automática</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-settings-target="settings-install" aria-controls="settings-install">
+                  <span class="settings-nav-icon"><i class="ri-smartphone-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Instalar aplicativo</strong><small>Adicionar o FinanZen ao dispositivo</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
+              </nav>
+            </div>
+
+            <div id="settings-detail" class="settings-detail" hidden>
+              <div class="settings-detail-toolbar">
+                <button id="settings-back-btn" class="settings-back-btn" type="button">
+                  <i class="ri-arrow-left-line" aria-hidden="true"></i>
+                  <span>Voltar para configurações</span>
+                </button>
+                <span class="settings-detail-location">Conta e configurações</span>
+              </div>
+
+            <!-- Conta, login e segurança -->
+            <div id="settings-account" class="section-card settings-card settings-module account-settings-card" hidden>
+              <div class="settings-card-head">
+                <span class="settings-card-icon"><i class="ri-user-shared-line"></i></span>
+                <div>
+                  <h4>Conta e acesso</h4>
+                  <p>Entre uma única vez para sincronizar seus dados e acessar as opções protegidas da conta.</p>
+                </div>
+              </div>
+              <div id="sync-panel" class="sync-panel"></div>
             </div>
 
             <!-- Resumo de Dados -->
-            <div class="section-card settings-card">
+            <div id="settings-summary" class="section-card settings-card settings-module" hidden>
               <div class="settings-card-head">
                 <span class="settings-card-icon"><i class="ri-bar-chart-box-line"></i></span>
                 <div>
@@ -694,9 +773,8 @@
               </div>
             </div>
 
-            <!-- Exportar / Restaurar -->
-            <div class="settings-columns">
-              <div class="section-card settings-card">
+            <!-- Exportar -->
+              <div id="settings-export" class="section-card settings-card settings-module" hidden>
                 <div class="settings-card-head">
                   <span class="settings-card-icon"><i class="ri-download-2-line"></i></span>
                   <div>
@@ -714,7 +792,7 @@
                 </div>
               </div>
 
-              <div class="section-card settings-card">
+              <div id="settings-import" class="section-card settings-card settings-module" hidden>
                 <div class="settings-card-head">
                   <span class="settings-card-icon"><i class="ri-upload-2-line"></i></span>
                   <div>
@@ -733,10 +811,9 @@
                   </button>
                 </div>
               </div>
-            </div>
 
             <!-- Lançamentos Recorrentes -->
-            <div class="section-card settings-card">
+            <div id="settings-recurring" class="section-card settings-card settings-module" hidden>
               <div class="settings-card-head">
                 <span class="settings-card-icon"><i class="ri-repeat-line"></i></span>
                 <div>
@@ -747,70 +824,63 @@
               <div id="recurring-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
             </div>
 
-            <!-- Personalização -->
-            <div class="section-card settings-card">
-              <div class="settings-card-head">
-                <span class="settings-card-icon"><i class="ri-equalizer-2-line"></i></span>
-                <div>
-                  <h4>Personalização</h4>
-                  <p>Moeda exibida, categorias próprias e suas contas/investimentos.</p>
-                </div>
-              </div>
-
-              <div class="form-group" style="max-width: 220px;">
-                <label class="form-label" for="settings-currency-select">Moeda Exibida</label>
-                <select id="settings-currency-select" class="form-control">
-                  <option value="BRL">Real (R$)</option>
-                  <option value="USD">Dólar (US$)</option>
-                  <option value="EUR">Euro (€)</option>
-                </select>
-              </div>
-
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
-                <!-- Categorias Personalizadas -->
-                <div>
-                  <h5 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 4px;">Categorias Personalizadas</h5>
-                  <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">Crie categorias próprias para receitas e despesas.</p>
-                  <form id="new-category-form" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
-                    <input type="text" id="new-category-name" class="form-control" placeholder="Nome da categoria" maxlength="40" style="flex: 1; min-width: 130px;">
-                    <select id="new-category-type" class="form-control" style="width: 120px;">
-                      <option value="expense">Despesa</option>
-                      <option value="income">Receita</option>
-                    </select>
-                    <input type="color" id="new-category-color" value="#8b5cf6" title="Cor da categoria" style="width: 42px; height: 42px; padding: 4px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer;">
-                    <button class="btn btn-primary btn-sm" type="submit"><i class="ri-add-line"></i> Adicionar</button>
-                  </form>
-                  <div id="custom-categories-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
-                </div>
-
-                <!-- Contas / Instituições (Banco, Corretora, Cartão) -->
-                <div>
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-                    <h5 style="font-size: 0.95rem; font-weight: 700;">Contas &amp; Instituições</h5>
-                    <button id="open-account-modal-btn" class="btn btn-primary btn-sm" type="button">
-                      <i class="ri-add-line"></i> Nova Conta
-                    </button>
+              <!-- Moeda -->
+              <div id="settings-currency" class="section-card settings-card settings-module" hidden>
+                <div class="settings-card-head">
+                  <span class="settings-card-icon"><i class="ri-money-dollar-circle-line"></i></span>
+                  <div>
+                    <h4>Moeda exibida</h4>
+                    <p>Escolha como os valores serão apresentados em todo o sistema.</p>
                   </div>
-                  <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">Bancos, corretoras e cartões de crédito — com saldo e limite.</p>
-                  <div id="accounts-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto;"></div>
+                </div>
+                <div class="form-group settings-currency-control">
+                  <label class="form-label" for="settings-currency-select">Moeda principal</label>
+                  <select id="settings-currency-select" class="form-control">
+                    <option value="BRL">Real (R$)</option>
+                    <option value="USD">Dólar (US$)</option>
+                    <option value="EUR">Euro (€)</option>
+                  </select>
                 </div>
               </div>
-            </div>
 
-            <!-- Sincronização em Nuvem -->
-            <div class="section-card settings-card">
-              <div class="settings-card-head">
-                <span class="settings-card-icon"><i class="ri-cloud-line"></i></span>
-                <div>
-                  <h4>Sincronização em Nuvem</h4>
-                  <p>Acesse os mesmos dados no computador e no celular. Opcional e desativado por padrão.</p>
+              <!-- Categorias Personalizadas -->
+              <div id="settings-categories" class="section-card settings-card settings-module" hidden>
+                <div class="settings-card-head">
+                  <span class="settings-card-icon"><i class="ri-price-tag-3-line"></i></span>
+                  <div>
+                    <h4>Categorias personalizadas</h4>
+                    <p>Crie, visualize e gerencie categorias próprias de receitas e despesas.</p>
+                  </div>
                 </div>
+                <form id="new-category-form" class="settings-category-form">
+                  <input type="text" id="new-category-name" class="form-control" placeholder="Nome da categoria" maxlength="40">
+                  <select id="new-category-type" class="form-control" aria-label="Tipo da categoria">
+                    <option value="expense">Despesa</option>
+                    <option value="income">Receita</option>
+                  </select>
+                  <input type="color" id="new-category-color" value="#8b5cf6" title="Cor da categoria" aria-label="Cor da categoria">
+                  <button class="btn btn-primary btn-sm" type="submit"><i class="ri-add-line"></i> Adicionar</button>
+                </form>
+                <div id="custom-categories-list" class="settings-managed-list"></div>
               </div>
-              <div id="sync-panel" class="sync-panel"></div>
-            </div>
+
+              <!-- Contas / Instituições -->
+              <div id="settings-accounts" class="section-card settings-card settings-module" hidden>
+                <div class="settings-card-head settings-card-head-action">
+                  <span class="settings-card-icon"><i class="ri-bank-line"></i></span>
+                  <div>
+                    <h4>Contas e instituições</h4>
+                    <p>Cadastre e gerencie bancos, corretoras, carteiras e cartões de crédito.</p>
+                  </div>
+                  <button id="open-account-modal-btn" class="btn btn-primary btn-sm" type="button">
+                    <i class="ri-add-line"></i> Nova conta
+                  </button>
+                </div>
+                <div id="accounts-list" class="settings-managed-list"></div>
+              </div>
 
             <!-- Open Finance -->
-            <div class="section-card settings-card open-finance-card">
+            <div id="settings-open-finance" class="section-card settings-card settings-module open-finance-card" hidden>
               <div class="settings-card-head">
                 <span class="settings-card-icon open-finance-icon"><i class="ri-bank-line"></i></span>
                 <div>
@@ -822,20 +892,22 @@
               <div id="open-finance-panel" class="open-finance-panel" aria-live="polite"></div>
             </div>
 
-            <!-- Zona de Perigo -->
-            <div class="section-card settings-card danger-card">
+            <!-- Instalação do aplicativo -->
+            <div id="settings-install" class="section-card settings-card settings-module" hidden>
               <div class="settings-card-head">
-                <span class="settings-card-icon"><i class="ri-alert-line"></i></span>
+                <span class="settings-card-icon"><i class="ri-smartphone-line"></i></span>
                 <div>
-                  <h4>Zona de Perigo</h4>
-                  <p>Ações irreversíveis. Recomendamos exportar um backup JSON antes de continuar.</p>
+                  <h4>Instalar aplicativo</h4>
+                  <p>Adicione o FinanZen à tela inicial para abrir mais rápido e usar os recursos disponíveis offline.</p>
                 </div>
               </div>
               <div class="settings-actions">
-                <button id="btn-reset-data" class="btn btn-secondary" style="border-color: var(--expense); color: var(--expense);">
-                  <i class="ri-refresh-line"></i> Restaurar Dados Demonstrativos
+                <button class="btn btn-primary pwa-install-btn" type="button">
+                  <i class="ri-download-cloud-2-line"></i> Instalar FinanZen
                 </button>
               </div>
+            </div>
+
             </div>
 
           </div>
@@ -1311,18 +1383,54 @@
     </div>
   </div>
 
+  <!-- Confirmação protegida para restaurar os dados -->
+  <div id="modal-reset-data" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-data-title">
+    <div class="modal-dialog account-confirm-dialog">
+      <div class="modal-header">
+        <h3 id="reset-data-title" class="modal-title">Confirmar restauração</h3>
+        <button class="modal-close-btn" type="button" aria-label="Fechar"><i class="ri-close-line"></i></button>
+      </div>
+      <form id="reset-data-form">
+        <div class="modal-body">
+          <div class="account-confirm-notice">
+            <i class="ri-information-line" aria-hidden="true"></i>
+            <div>
+              <strong>Seus dados financeiros serão substituídos</strong>
+              <span>O FinanZen voltará aos dados iniciais de demonstração. Faça um backup antes, se precisar conservar alguma informação.</span>
+            </div>
+          </div>
+          <div class="account-confirm-user">
+            <span>Conta conectada</span>
+            <strong id="reset-account-email">—</strong>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reset-password-input">Digite sua senha para confirmar</label>
+            <input type="password" id="reset-password-input" class="form-control" autocomplete="current-password" minlength="6" required>
+            <small>A senha será validada com segurança e não ficará salva no navegador.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary modal-cancel-btn">Cancelar</button>
+          <button id="reset-data-submit" type="submit" class="btn btn-reset-confirm">
+            <i class="ri-refresh-line"></i> Confirmar e restaurar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Portal do Seletor de Período (fora do header para o dropdown não ser "preso" pelo backdrop-filter) -->
   <div id="period-selector-veil" class="period-selector-veil"></div>
   <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
 
   <!-- Scripts do FinanZen -->
-  <script src="js/state.js?v=1.5.2"></script>
-  <script src="js/charts.js?v=1.5.2"></script>
-  <script src="js/app.js?v=1.5.2"></script>
-  <script src="js/sync-config.js?v=1.5.2"></script>
+  <script src="js/state.js?v=1.6.2"></script>
+  <script src="js/charts.js?v=1.6.2"></script>
+  <script src="js/app.js?v=1.6.2"></script>
+  <script src="js/sync-config.js?v=1.6.2"></script>
   <script src="js/vendor/supabase.min.js"></script>
-  <script src="js/sync.js?v=1.5.2"></script>
-  <script src="js/open-finance.js?v=1.5.2"></script>
+  <script src="js/sync.js?v=1.6.2"></script>
+  <script src="js/open-finance.js?v=1.6.2"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

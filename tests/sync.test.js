@@ -99,6 +99,30 @@ test('nuvem mais antiga não sobrescreve o local (last-write-wins)', async () =>
   assert.strictEqual(env.fake.rows.get('user-1').data.transactions[0].description, localDesc, 'local enviado');
 });
 
+test('edição local depois do último sync vence nuvem mais nova (sem perda de dados)', async () => {
+  const env = createSyncEnv({
+    config: CONFIG,
+    rows: [{
+      user_id: 'user-1',
+      data: remoteData('Registro de outro aparelho'),
+      settings: {},
+      updated_at: '2050-01-01T00:00:00.000Z'
+    }]
+  });
+  // Último sync antigo, mas o usuário alterou os dados localmente depois disso.
+  env.storage.setItem(META_KEY, JSON.stringify({ lastSyncedAt: '2025-06-01T00:00:00.000Z' }));
+  env.storage.setItem('finanzen_last_local_change', String(new Date('2060-01-01T00:00:00.000Z').getTime()));
+
+  await env.sync.init();
+  env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
+  const localDesc = env.state.data.transactions[0].description;
+
+  await env.sync.pullIfNewer();
+
+  assert.strictEqual(env.state.data.transactions[0].description, localDesc, 'edição local preservada');
+  assert.strictEqual(env.fake.rows.get('user-1').data.transactions[0].description, localDesc, 'edição local enviada');
+});
+
 test('pull normaliza coleções e atualiza a interface', async () => {
   const env = createSyncEnv({
     config: CONFIG,
@@ -129,6 +153,27 @@ test('pull normaliza coleções e atualiza a interface', async () => {
   assert.strictEqual(rendered, 1, 'renderAll chamado após o pull');
 });
 
+test('pull rejeita documento remoto inválido sem sobrescrever dados locais', async () => {
+  const env = createSyncEnv({
+    config: CONFIG,
+    rows: [{
+      user_id: 'user-1',
+      data: { transactions: 'não-é-array' },
+      settings: {},
+      updated_at: '2099-01-01T00:00:00.000Z'
+    }]
+  });
+  await env.sync.init();
+  env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
+  const localDescription = env.state.data.transactions[0].description;
+
+  const result = await env.sync.pull();
+
+  assert.ok(result.error);
+  assert.strictEqual(env.state.data.transactions[0].description, localDescription);
+  assert.strictEqual(env.sync.status, 'error');
+});
+
 test('alterações locais não são enviadas quando não há usuário', async () => {
   const env = createSyncEnv({ config: CONFIG });
   await env.sync.init();
@@ -154,6 +199,19 @@ test('push grava os dados e atualiza lastSyncedAt', async () => {
   assert.strictEqual(env.sync.status, 'synced');
 });
 
+test('push registra o timestamp retornado pelo servidor', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
+  env.fake.state.serverUpdatedAt = '2035-04-05T10:20:30.000Z';
+
+  await env.sync.push();
+
+  const meta = JSON.parse(env.storage.getItem(META_KEY));
+  assert.strictEqual(meta.lastSyncedAt, '2035-04-05T10:20:30.000Z');
+  assert.strictEqual(env.sync.lastSyncedAt, '2035-04-05T10:20:30.000Z');
+});
+
 test('signIn com senha curta retorna erro e não conecta', async () => {
   const env = createSyncEnv({ config: CONFIG });
   await env.sync.init();
@@ -163,6 +221,20 @@ test('signIn com senha curta retorna erro e não conecta', async () => {
   assert.ok(r.error);
   assert.strictEqual(env.sync.user, null);
   assert.strictEqual(env.sync.status, 'error');
+});
+
+test('verificação de senha usa cliente isolado e preserva a sessão principal', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
+
+  const invalid = await env.sync.verifyPassword('123');
+  const valid = await env.sync.verifyPassword('segredo1');
+
+  assert.ok(invalid.error);
+  assert.strictEqual(valid.ok, true);
+  assert.strictEqual(env.sync.user.email, 'eu@teste.com');
+  assert.strictEqual(env.fake.state.createClientCalls, 2, 'deve criar um cliente temporário para validar');
 });
 
 test('signOut limpa o usuário', async () => {

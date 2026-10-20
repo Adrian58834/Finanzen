@@ -435,6 +435,66 @@ test('importJSON aceita / rejeita', () => {
   assert.ok(Array.isArray(s.data.accounts), 'contas renormalizadas');
 });
 
+test('importJSON normaliza campos perigosos e estruturas incompletas', () => {
+  const s = fresh();
+  const payload = JSON.stringify({
+    transactions: [
+      {
+        id: 'x\" onmouseover=\"alert(1)',
+        description: '  Compra\u0000 teste  ',
+        amount: 25,
+        type: 'expense',
+        category: 'cat_lazer',
+        date: '2026-02-31',
+        account: 'Conta Corrente',
+        status: 'qualquer',
+        notes: 'ok'
+      },
+      { id: 'negativa', amount: -10, type: 'expense' }
+    ],
+    customCategories: [{
+      id: 'cat_teste',
+      name: 'Teste',
+      icon: 'x\" onclick=\"alert(1)',
+      color: 'red; background:url(javascript:alert(1))',
+      type: 'expense'
+    }],
+    goals: [{ title: 'Meta', icon: '\"><script>alert(1)</script>' }]
+  });
+
+  assert.strictEqual(s.importJSON(payload), true);
+  assert.strictEqual(s.data.transactions.length, 1, 'valor negativo é descartado');
+  assert.match(s.data.transactions[0].id, /^[A-Za-z0-9_-]+$/);
+  assert.strictEqual(s.data.transactions[0].description, 'Compra  teste');
+  assert.notStrictEqual(s.data.transactions[0].date, '2026-02-31');
+  assert.strictEqual(s.data.transactions[0].status, 'paid');
+  assert.strictEqual(s.data.customCategories[0].icon, 'ri-price-tag-3-line');
+  assert.strictEqual(s.data.customCategories[0].color, '#8b5cf6');
+  assert.strictEqual(s.data.goals[0].icon, 'ri-money-dollar-circle-line');
+  assert.deepStrictEqual(s.data.budgets, []);
+  assert.ok(s.data.accounts.length > 0);
+});
+
+test('configurações inválidas são substituídas por valores seguros', () => {
+  const s = fresh();
+  s.saveSettings({ theme: '<script>', currency: 'REAL<script>' });
+  assert.deepStrictEqual(s.settings, { theme: 'dark', currency: 'BRL' });
+});
+
+test('metadados seguros das configurações são preservados', () => {
+  const s = fresh();
+  s.saveSettings({
+    lastBackupAt: '2026-10-19T12:30:00.000Z',
+    lastNotifyDate: '2026-10-19'
+  });
+  assert.strictEqual(s.settings.lastBackupAt, '2026-10-19T12:30:00.000Z');
+  assert.strictEqual(s.settings.lastNotifyDate, '2026-10-19');
+
+  const reloaded = new setup.FinancialState();
+  assert.strictEqual(reloaded.settings.lastBackupAt, '2026-10-19T12:30:00.000Z');
+  assert.strictEqual(reloaded.settings.lastNotifyDate, '2026-10-19');
+});
+
 test('exportCSV gera cabeçalho e dados válidos', () => {
   const s = fresh();
   s.data.transactions = [
@@ -453,6 +513,8 @@ test('resetAllData regenera dados de demonstração', () => {
   assert.strictEqual(s.data.transactions.length, before);
   assert.ok(s.data.goals.length > 0);
   assert.ok(s.data.accounts.length >= 6);
+  const persisted = JSON.parse(setup.storage.getItem(setup.STORAGE_KEY));
+  assert.strictEqual(persisted.transactions.length, before, 'restauração deve ser persistida imediatamente');
 });
 
 test('saveSettings persiste preferências (moeda)', () => {
@@ -533,7 +595,7 @@ test('materializar meses futuros cria lançamentos Agendados e o vencimento os c
     status: 'paid'
   });
 
-  const created = s.processRecurring(s.endOfMonth('2026-11'));
+  const created = s.processRecurring(s.endOfMonth('2026-11'), '2026-09-30');
   assert.strictEqual(created, 2, 'outubro e novembro');
   const fixedTxs = s.data.transactions.filter(t => t.fixed);
   assert.strictEqual(fixedTxs.length, 2);
@@ -541,6 +603,24 @@ test('materializar meses futuros cria lançamentos Agendados e o vencimento os c
 
   assert.strictEqual(s.settleDueFixedTransactions('2026-11-30'), 2);
   assert.ok(s.data.transactions.filter(t => t.fixed).every(t => t.status === 'paid'));
+});
+
+test('materialização de recorrências salva o lote apenas uma vez', () => {
+  const s = fresh();
+  s.data.transactions = [];
+  s.addRecurring({
+    type: 'expense',
+    description: 'Mensalidade',
+    amount: 100,
+    nextDate: '2026-01-10',
+    dayOfMonth: 10,
+    frequency: 'monthly'
+  });
+  let saves = 0;
+  s.saveData = () => { saves += 1; };
+
+  assert.strictEqual(s.processRecurring('2026-06-30', '2025-12-31'), 6);
+  assert.strictEqual(saves, 1);
 });
 
 test('endOfMonth calcula o último dia do mês', () => {
@@ -699,4 +779,119 @@ test('conta de crédito guarda dia de fechamento e vencimento', () => {
   const updated = s.updateAccount('Visa Teste', { closingDay: 15, dueDay: 25 });
   assert.strictEqual(updated.closingDay, 15);
   assert.strictEqual(updated.dueDay, 25);
+});
+
+test('despesa em cartão de crédito entra como futura (pendente) e compõe a fatura', () => {
+  const s = fresh();
+  s.data.transactions = [];
+
+  const tx = s.addTransaction({
+    description: 'Compra no cartão',
+    amount: 300,
+    type: 'expense',
+    category: 'cat_lazer',
+    account: 'Cartão de Crédito',
+    date: '2026-09-10',
+    status: 'paid'
+  });
+
+  assert.strictEqual(tx.status, 'pending', 'ignora o status enviado e entra como "Fatura futura"');
+  assert.strictEqual(tx.dueDate, '2026-10-05', 'vencimento segue o ciclo do cartão (fechamento 25, vencimento 5)');
+
+  const inv = s.getAccountInvoice('Cartão de Crédito', '2026-09-15');
+  assert.strictEqual(inv.transactions.length, 1);
+  assert.strictEqual(inv.total, 300);
+  assert.strictEqual(inv.pendingTotal, 300, 'fatura aberta acumula a compra futura');
+
+  const details = s.getCreditCardDetails('Cartão de Crédito');
+  assert.strictEqual(details.invoiceMap['2026-09'].total, 300, 'valor da fatura calculado a partir das compras');
+  assert.strictEqual(details.invoiceMap['2026-09'].pendingTotal, 300);
+});
+
+test('compra no cartão só fica paga quando a fatura é paga', () => {
+  const s = fresh();
+  s.data.transactions = [];
+
+  s.addTransaction({ description: 'Compra A', amount: 100, type: 'expense', category: 'cat_lazer', account: 'Cartão de Crédito', date: '2026-09-10' });
+  const tx = s.data.transactions.find(t => t.description === 'Compra A');
+  const txId = tx.id;
+
+  const updated = s.updateTransaction(txId, { status: 'paid' });
+  assert.strictEqual(updated.status, 'pending', 'edição não pode marcar compra no cartão como paga');
+  assert.strictEqual(s.markTransactionsPaid([txId]), 0, 'marcar isoladamente não paga compra no cartão');
+
+  const res = s.payCreditCardInvoice('Cartão de Crédito', '2026-09', 'Conta Corrente');
+  assert.strictEqual(res.countPaid, 1);
+  assert.strictEqual(res.totalPaid, 100);
+  assert.strictEqual(s.data.transactions.find(t => t.id === txId).status, 'paid', 'só o pagamento da fatura quita');
+});
+
+test('pagamento da fatura transfere o débito e zera o limite usado', () => {
+  const s = fresh();
+  s.data.accounts = [
+    { id: 'a1', name: 'Conta Corrente', type: 'bank', openingBalance: 2000, creditLimit: 0 },
+    { id: 'a2', name: 'Cartão de Crédito', type: 'credit', openingBalance: 0, creditLimit: 3000, closingDay: 25, dueDay: 5 }
+  ];
+  s.data.transactions = [];
+
+  s.addTransaction({ description: 'Compra', amount: 500, type: 'expense', category: 'cat_lazer', account: 'Cartão de Crédito', date: '2026-09-10' });
+
+  let m = s.getAccountMetrics('all');
+  assert.strictEqual(m.accounts.find(a => a.name === 'Cartão de Crédito').used, 500, 'dívida acompanha o cartão');
+
+  const res = s.payCreditCardInvoice('Cartão de Crédito', '2026-09', 'Conta Corrente');
+  assert.strictEqual(res.totalPaid, 500);
+
+  m = s.getAccountMetrics('all');
+  assert.strictEqual(m.accounts.find(a => a.name === 'Cartão de Crédito').used, 0, 'fatura paga zera a dívida');
+  assert.strictEqual(m.accounts.find(a => a.name === 'Conta Corrente').value, 1500, 'conta de origem é debitada');
+
+  const transfer = s.data.transactions.find(t => t.type === 'transfer');
+  assert.ok(transfer, 'quitação registrada como transferência');
+  assert.strictEqual(transfer.account, 'Conta Corrente');
+  assert.strictEqual(transfer.toAccount, 'Cartão de Crédito');
+
+  const metrics = s.getMetrics('2026-09');
+  assert.strictEqual(metrics.totalExpense, 500, 'pagamento de fatura não vira nova despesa');
+});
+
+test('parcelas no cartão entram como faturas futuras nas respectivas faturas', () => {
+  const s = fresh();
+  s.data.transactions = [];
+
+  const txs = s.addInstallmentTransactions({
+    description: 'Compra parcelada',
+    amount: 300,
+    type: 'expense',
+    category: 'cat_lazer',
+    account: 'Cartão de Crédito',
+    date: '2026-09-10',
+    status: 'paid'
+  }, 3);
+
+  assert.strictEqual(txs.length, 3);
+  assert.ok(txs.every(t => t.status === 'pending'), 'parcelas entram como faturas futuras');
+  assert.strictEqual(s.getInvoicePeriodForDate(txs[0].date, 25), '2026-09');
+  assert.strictEqual(s.getInvoicePeriodForDate(txs[1].date, 25), '2026-10');
+  assert.strictEqual(s.getInvoicePeriodForDate(txs[2].date, 25), '2026-11');
+  assert.strictEqual(txs.reduce((sum, t) => sum + t.amount, 0), 300, 'soma preserva o total');
+});
+
+test('lembrete agrupa compras do cartão por fatura e permite pagar a fatura', () => {
+  const s = fresh();
+  s.data.transactions = [];
+
+  s.addTransaction({ description: 'Cinema', amount: 40, type: 'expense', category: 'cat_lazer', account: 'Cartão de Crédito', date: '2026-09-28' });
+  s.addTransaction({ description: 'Mercado', amount: 130, type: 'expense', category: 'cat_alimentacao', account: 'Cartão de Crédito', date: '2026-10-02' });
+
+  const r = s.getDueReminders('2026-10-06');
+  const invoices = [...r.all, ...r.later].filter(i => i.kind === 'invoice');
+  assert.strictEqual(invoices.length, 1, 'compras do mesmo ciclo agrupadas em uma fatura');
+  assert.strictEqual(invoices[0].amount, 170, 'fatura soma as compras futuras');
+  assert.strictEqual(invoices[0].period, '2026-10');
+  assert.strictEqual(invoices[0].dueDate, '2026-11-05');
+
+  const res = s.payCreditCardInvoice('Cartão de Crédito', invoices[0].period);
+  assert.strictEqual(res.totalPaid, 170);
+  assert.strictEqual(s.data.transactions.filter(t => t.type === 'expense' && t.status === 'paid').length, 2, 'fatura paga quita as compras');
 });

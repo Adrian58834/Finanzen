@@ -28,7 +28,7 @@ class MemoryStorage {
 // Cliente Supabase simulado: guarda as linhas em um Map (user_id -> row).
 function makeFakeSupabase(initialRows) {
   const rows = new Map();
-  const state = { createClientCalls: 0 };
+  const state = { createClientCalls: 0, serverUpdatedAt: null };
   (initialRows || []).forEach(row => rows.set(row.user_id, { ...row }));
 
   const supabase = {
@@ -75,7 +75,7 @@ function makeFakeSupabase(initialRows) {
               rows.set(payload.user_id, {
                 data: payload.data,
                 settings: payload.settings,
-                updated_at: payload.updated_at
+                updated_at: state.serverUpdatedAt || payload.updated_at
               });
               return Promise.resolve({ error: null });
             },

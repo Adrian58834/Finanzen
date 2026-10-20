@@ -12,7 +12,7 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..');
 
 // IDs criados dinamicamente pelo código (não existem no HTML inicial)
-const DYNAMIC_IDS = new Set(['toast-container', 'due-alert-open', 'sync-email', 'sync-password', 'tx-prev-page', 'tx-next-page']);
+const DYNAMIC_IDS = new Set(['toast-container', 'due-alert-open', 'sync-email', 'sync-password', 'tx-prev-page', 'tx-next-page', 'empty-add-card-btn']);
 
 function read(file) {
   return fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -49,8 +49,23 @@ test('nenhum ID duplicado no HTML', () => {
   assert.deepStrictEqual(dupes, []);
 });
 
+test('versão do app e cache offline permanecem sincronizados', () => {
+  const html = read('index.html');
+  const serviceWorker = read('sw.js');
+  const packageData = JSON.parse(read('package.json'));
+  const version = packageData.version;
+
+  assert.match(version, /^\d+\.\d+\.\d+$/, 'package.json deve usar versão semântica');
+  assert.ok(serviceWorker.includes(`const VERSION = 'finanzen-v${version}'`), 'versão divergente no service worker');
+
+  for (const asset of ['css/style.css', 'js/state.js', 'js/charts.js', 'js/app.js', 'js/sync-config.js', 'js/sync.js', 'js/open-finance.js']) {
+    assert.ok(html.includes(`${asset}?v=${version}`), `versão ausente no HTML para ${asset}`);
+    assert.ok(serviceWorker.includes(`./${asset}?v=${version}`), `versão ausente no cache para ${asset}`);
+  }
+});
+
 test('sintaxe válida em todos os JS da aplicação', () => {
-  const files = ['js/state.js', 'js/charts.js', 'js/app.js', 'js/sync.js', 'js/sync-config.js', 'sw.js'];
+  const files = ['js/state.js', 'js/charts.js', 'js/app.js', 'js/sync.js', 'js/open-finance.js', 'js/sync-config.js', 'sw.js'];
   for (const file of files) {
     const abs = path.join(ROOT, file);
     assert.doesNotThrow(() => {
@@ -69,13 +84,50 @@ test('sync.js não chama métodos inexistentes (evita TypeError silencioso)', ()
   assert.deepStrictEqual(missing, [], `métodos inexistentes em sync.js: ${missing.join(', ')}`);
 });
 
-test('estrutura principal do HTML preservada (6 abas + seções essenciais)', () => {  const html = read('index.html');
+test('toast trata a mensagem como texto, sem interpolar HTML', () => {
+  const js = read('js/app.js');
+  const start = js.indexOf('showToast(message');
+  assert.ok(start >= 0, 'showToast deve existir');
+  const toastCode = js.slice(start);
+  assert.ok(toastCode.includes("messageElement.textContent = String(message ?? '')"));
+  assert.ok(!toastCode.includes('<span>${message}</span>'), 'mensagem não pode entrar em innerHTML');
+});
+
+test('estrutura principal do HTML preservada (7 abas + seções essenciais)', () => {  const html = read('index.html');
   const sections = (html.match(/class="tab-content/g) || []).length;
-  assert.strictEqual(sections, 6);
-  for (const id of ['tab-dashboard', 'tab-transactions', 'tab-budgets', 'tab-goals', 'tab-reports', 'tab-settings']) {
+  assert.strictEqual(sections, 7);
+  for (const id of ['tab-dashboard', 'tab-transactions', 'tab-cards', 'tab-budgets', 'tab-goals', 'tab-reports', 'tab-settings']) {
     assert.ok(html.includes(`id="${id}"`), `falta ${id}`);
   }
-  for (const id of ['modal-transaction', 'modal-budget', 'modal-goal', 'modal-account', 'modal-transfer', 'modal-deposit']) {
+  for (const id of ['modal-transaction', 'modal-budget', 'modal-goal', 'modal-account', 'modal-transfer', 'modal-deposit', 'modal-credit-card', 'modal-reset-data']) {
     assert.ok(html.includes(`id="${id}"`), `falta ${id}`);
   }
+});
+
+test('configurações usam uma central de blocos que abre um módulo por vez', () => {
+  const html = read('index.html');
+  const js = read('js/app.js');
+  const modules = [
+    'settings-account',
+    'settings-summary',
+    'settings-export',
+    'settings-import',
+    'settings-recurring',
+    'settings-currency',
+    'settings-categories',
+    'settings-accounts',
+    'settings-open-finance',
+    'settings-install'
+  ];
+
+  assert.ok(html.includes('id="settings-home"'), 'falta a central de configurações');
+  assert.ok(html.includes('id="settings-detail"'), 'falta a área de detalhe das configurações');
+  assert.ok(html.includes('id="settings-back-btn"'), 'falta a ação para voltar à central');
+  for (const id of modules) {
+    assert.ok(html.includes(`id="${id}"`), `falta o módulo ${id}`);
+    assert.ok(html.includes(`data-settings-target="${id}"`), `falta o bloco para ${id}`);
+    assert.match(html, new RegExp(`id="${id}"[^>]*\\shidden(?:\\s|>)`), `${id} deve iniciar oculto`);
+  }
+  assert.ok(js.includes('openSettingsModule(moduleId'), 'falta a abertura isolada dos módulos');
+  assert.ok(js.includes('showSettingsHome(restoreFocus'), 'falta o retorno à central');
 });

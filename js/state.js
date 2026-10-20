@@ -2105,8 +2105,8 @@ class FinancialState {
   }
 
   resetAllData() {
-    localStorage.removeItem(this.STORAGE_KEY);
     this.data = this.generateSeedData();
+    this.saveData();
   }
 }
 

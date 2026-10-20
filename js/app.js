@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
       this.initTheme();
       this.setupPeriodSelector();
       this.setupNavigation();
+      this.setupSettingsNavigation();
       this.setupModals();
       this.setupQuickCreate();
       this.setupForms();
@@ -332,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           this.currentTab = targetTab;
           this.updateHeaderTitle(targetTab);
+          if (targetTab === 'settings') this.showSettingsHome(false);
 
           // Fechar sidebar mobile ao navegar
           document.querySelector('.sidebar').classList.remove('open');
@@ -353,6 +355,79 @@ document.addEventListener('DOMContentLoaded', () => {
           const tabBtn = document.querySelector(`[data-tab="${hash}"]`);
           if (tabBtn) tabBtn.click();
         }
+      }
+    },
+
+    // --- Navegação interna das configurações ---
+    setupSettingsNavigation() {
+      const triggers = [...document.querySelectorAll('[data-settings-target]')];
+      const backButton = document.getElementById('settings-back-btn');
+      if (triggers.length === 0 || !backButton) return;
+
+      triggers.forEach(trigger => {
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.addEventListener('click', () => {
+          this.openSettingsModule(trigger.dataset.settingsTarget, trigger);
+        });
+      });
+
+      backButton.addEventListener('click', () => this.showSettingsHome(true));
+
+      document.addEventListener('keydown', event => {
+        const detail = document.getElementById('settings-detail');
+        if (event.key !== 'Escape' || this.currentTab !== 'settings' || !detail || detail.hidden) return;
+        event.preventDefault();
+        this.showSettingsHome(true);
+      });
+    },
+
+    openSettingsModule(moduleId, trigger = null) {
+      const home = document.getElementById('settings-home');
+      const detail = document.getElementById('settings-detail');
+      const module = document.getElementById(moduleId);
+      if (!home || !detail || !module || !module.classList.contains('settings-module')) return;
+
+      document.querySelectorAll('.settings-module').forEach(item => {
+        item.hidden = true;
+        item.classList.remove('settings-module-active');
+      });
+      document.querySelectorAll('[data-settings-target]').forEach(item => {
+        item.setAttribute('aria-expanded', String(item === trigger));
+      });
+
+      this.settingsLastTrigger = trigger;
+      home.hidden = true;
+      detail.hidden = false;
+      module.hidden = false;
+      module.classList.add('settings-module-active');
+
+      const title = module.querySelector('h4')?.textContent?.trim();
+      const location = detail.querySelector('.settings-detail-location');
+      if (location) location.textContent = title || 'Conta e configurações';
+
+      document.getElementById('settings-back-btn')?.focus({ preventScroll: true });
+      const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      document.querySelector('.content-area')?.scrollTo({ top: 0, behavior: scrollBehavior });
+    },
+
+    showSettingsHome(restoreFocus = false) {
+      const home = document.getElementById('settings-home');
+      const detail = document.getElementById('settings-detail');
+      if (!home || !detail) return;
+
+      document.querySelectorAll('.settings-module').forEach(item => {
+        item.hidden = true;
+        item.classList.remove('settings-module-active');
+      });
+      document.querySelectorAll('[data-settings-target]').forEach(item => item.setAttribute('aria-expanded', 'false'));
+
+      detail.hidden = true;
+      home.hidden = false;
+      const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+      document.querySelector('.content-area')?.scrollTo({ top: 0, behavior: scrollBehavior });
+
+      if (restoreFocus && this.settingsLastTrigger) {
+        this.settingsLastTrigger.focus({ preventScroll: true });
       }
     },
 
@@ -387,8 +462,8 @@ document.addEventListener('DOMContentLoaded', () => {
           subtitleElem.textContent = 'Estatísticas detalhadas e evolução financeira';
           break;
         case 'settings':
-          titleElem.textContent = 'Backup & Dados';
-          subtitleElem.textContent = 'Resumo, exportação, restauração e personalização dos seus dados';
+          titleElem.textContent = 'Conta & Ajustes';
+          subtitleElem.textContent = 'Escolha uma área para gerenciar sua conta, seus dados e preferências';
           break;
       }
     },
@@ -969,8 +1044,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="sync-status sync-status-idle">
             <i class="ri-information-line"></i>
             <div>
-              <strong>Não configurado</strong>
-              <span>Preencha <code>js/sync-config.js</code> com a URL e a chave do Supabase para ativar. Enquanto isso, tudo fica salvo apenas neste dispositivo.</span>
+              <strong>Acesso à conta indisponível</strong>
+              <span>O serviço de conta ainda não foi ativado. Seus dados continuam salvos somente neste dispositivo.</span>
             </div>
           </div>`;
         return;
@@ -990,16 +1065,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!sync.user) {
         panel.innerHTML = `
-          <div class="sync-status ${statusClass}">
-            <i class="ri-cloud-off-line"></i>
+          <div class="sync-status ${statusClass} account-access-status">
+            <i class="ri-user-line"></i>
             <div>
               <strong>${statusLabel}</strong>
-              <span>Entre para sincronizar seus dados entre aparelhos.</span>
+              <span>Entre para sincronizar seus dados e gerenciar sua conta com segurança.</span>
             </div>
           </div>
           <form id="sync-auth-form" class="sync-auth-form" onsubmit="return false;">
-            <input type="email" id="sync-email" class="form-control" placeholder="seu@email.com" autocomplete="email">
-            <input type="password" id="sync-password" class="form-control" placeholder="Senha (mín. 6 caracteres)" autocomplete="current-password">
+            <div class="form-group">
+              <label class="form-label" for="sync-email">E-mail</label>
+              <input type="email" id="sync-email" class="form-control" placeholder="seu@email.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sync-password">Senha</label>
+              <input type="password" id="sync-password" class="form-control" placeholder="Mínimo de 6 caracteres" autocomplete="current-password">
+            </div>
             <div class="sync-auth-actions">
               <button type="button" id="sync-signin-btn" class="btn btn-primary btn-sm"><i class="ri-login-box-line"></i> Entrar</button>
               <button type="button" id="sync-signup-btn" class="btn btn-secondary btn-sm"><i class="ri-user-add-line"></i> Criar conta</button>
@@ -1012,20 +1093,34 @@ document.addEventListener('DOMContentLoaded', () => {
       const last = sync.lastSyncedAt ? this.formatDateTime(sync.lastSyncedAt) : 'Nunca';
 
       panel.innerHTML = `
-        <div class="sync-status ${statusClass}">
-          <i class="${sync.status === 'error' ? 'ri-error-warning-line' : 'ri-cloud-line'}"></i>
-          <div>
-            <strong>${statusLabel}</strong>
-            <span>${this.escapeHtml(sync.user.email || '')}</span>
-            <span class="sync-last">Última sincronização: ${last}</span>
+        <div class="account-session">
+          <div class="sync-status ${statusClass}">
+            <i class="${sync.status === 'error' ? 'ri-error-warning-line' : 'ri-checkbox-circle-line'}"></i>
+            <div>
+              <strong>${statusLabel}</strong>
+              <span>${this.escapeHtml(sync.user.email || '')}</span>
+              <span class="sync-last">Última sincronização: ${last}</span>
+            </div>
           </div>
+          <button id="sync-signout-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-logout-box-line"></i> Sair</button>
         </div>
         ${sync.lastError ? `<p class="sync-error">${this.escapeHtml(sync.lastError)}</p>` : ''}
-        <div class="settings-actions">
+        <div class="account-sync-actions">
           <button id="sync-now-btn" class="btn btn-primary btn-sm" type="button"><i class="ri-refresh-line"></i> Sincronizar agora</button>
-          <button id="sync-push-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-upload-cloud-2-line"></i> Enviar</button>
-          <button id="sync-pull-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-download-cloud-2-line"></i> Baixar</button>
-          <button id="sync-signout-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-logout-box-line"></i> Sair</button>
+          <details class="sync-advanced-actions">
+            <summary>Opções avançadas</summary>
+            <div class="settings-actions">
+              <button id="sync-push-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-upload-cloud-2-line"></i> Enviar para a nuvem</button>
+              <button id="sync-pull-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-download-cloud-2-line"></i> Baixar da nuvem</button>
+            </div>
+          </details>
+        </div>
+        <div class="account-data-control">
+          <div>
+            <strong>Restaurar dados iniciais</strong>
+            <span>Substitui seus dados financeiros pelos registros de demonstração. Sua senha será solicitada.</span>
+          </div>
+          <button id="sync-reset-open-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-refresh-line"></i> Restaurar dados</button>
         </div>`;
     },
 
@@ -1058,6 +1153,21 @@ document.addEventListener('DOMContentLoaded', () => {
             this.showToast('Conectado!', 'success');
           }
           this.renderSyncPanel();
+          return;
+        }
+
+        if (button.id === 'sync-reset-open-btn') {
+          if (!sync.user) {
+            this.showToast('Entre na sua conta antes de restaurar os dados.', 'warning');
+            return;
+          }
+          const form = document.getElementById('reset-data-form');
+          const email = document.getElementById('reset-account-email');
+          const password = document.getElementById('reset-password-input');
+          if (form) form.reset();
+          if (email) email.textContent = sync.user.email || '';
+          this.openModal('modal-reset-data');
+          requestAnimationFrame(() => password?.focus());
           return;
         }
 
@@ -3651,7 +3761,7 @@ populateTxCategories(type, selectedCatId = null) {
       const inputFile = document.getElementById('import-json-file');
       const btnImportCSV = document.getElementById('btn-import-csv');
       const inputCSVFile = document.getElementById('import-csv-file');
-      const btnReset = document.getElementById('btn-reset-data');
+      const resetForm = document.getElementById('reset-data-form');
 
       if (btnExportJSON) {
         btnExportJSON.addEventListener('click', () => {
@@ -3715,12 +3825,60 @@ populateTxCategories(type, selectedCatId = null) {
         });
       }
 
-      if (btnReset) {
-        btnReset.addEventListener('click', () => {
-          if (confirm('Atenção: Isso irá apagar seus dados personalizados e restaurar os dados de exemplo. Continuar?')) {
-            window.financialState.resetAllData();
-            this.renderAll();
-            this.showToast('Dados restaurados para o padrão de demonstração.', 'info');
+      if (resetForm) {
+        resetForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const sync = window.financeSync;
+          const passwordInput = document.getElementById('reset-password-input');
+          const submitButton = document.getElementById('reset-data-submit');
+          const password = passwordInput ? passwordInput.value : '';
+
+          if (!sync || !sync.user) {
+            this.closeModal('modal-reset-data');
+            this.showToast('Sua sessão expirou. Entre novamente para continuar.', 'warning');
+            this.renderSyncPanel();
+            return;
+          }
+          if (password.length < 6) {
+            this.showToast('Digite sua senha atual para confirmar.', 'warning');
+            passwordInput?.focus();
+            return;
+          }
+
+          if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Validando...';
+          }
+
+          const verification = await sync.verifyPassword(password);
+          if (verification && verification.error) {
+            this.showToast('Senha incorreta. Os dados não foram alterados.', 'error');
+            if (passwordInput) {
+              passwordInput.value = '';
+              passwordInput.focus();
+            }
+            if (submitButton) {
+              submitButton.disabled = false;
+              submitButton.innerHTML = '<i class="ri-refresh-line"></i> Confirmar e restaurar';
+            }
+            return;
+          }
+
+          window.financialState.resetAllData();
+          const cloudResult = await sync.push();
+          resetForm.reset();
+          this.closeModal('modal-reset-data');
+          this.renderAll();
+          this.renderSyncPanel();
+
+          if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="ri-refresh-line"></i> Confirmar e restaurar';
+          }
+          if (cloudResult && cloudResult.error) {
+            this.showToast('Dados locais restaurados, mas a nuvem não pôde ser atualizada.', 'warning');
+          } else {
+            this.showToast('Dados restaurados com segurança.', 'success');
           }
         });
       }

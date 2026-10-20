@@ -135,6 +135,31 @@
       return { ok: true };
     },
 
+    // Confere a senha sem alterar a sessão principal nem disparar uma nova sincronização.
+    async verifyPassword(password) {
+      if (!this.client || !this.user || !this.user.email) return { error: 'Não autenticado.' };
+      if (typeof password !== 'string' || password.length < 6) return { error: 'Senha inválida.' };
+
+      try {
+        const verifier = supabase.createClient(config.url, config.anonKey, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
+          }
+        });
+        const { error } = await verifier.auth.signInWithPassword({
+          email: this.user.email,
+          password
+        });
+        if (error) return { error: 'Senha inválida.' };
+        await verifier.auth.signOut();
+        return { ok: true };
+      } catch (error) {
+        return { error: 'Não foi possível validar a senha.' };
+      }
+    },
+
     async signOut() {
       if (!this.client) return;
       await this.client.auth.signOut();

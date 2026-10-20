@@ -4,6 +4,8 @@ O **FinanZen** é uma aplicação web (PWA) moderna, sofisticada e intuitiva pro
 
 Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **opcional**.
 
+**Versão atual:** 1.6.2 — consulte o [histórico de alterações](CHANGELOG.md).
+
 ---
 
 ## Principais Funcionalidades
@@ -59,6 +61,11 @@ Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **o
    - Estratégia *last-write-wins*: o registro mais recente vence.
    - Sem configurar o Supabase, o app segue 100% local e nenhum dado sai do dispositivo.
 
+10. **Fundação Open Finance (em preparação)**:
+   - Modelo normalizado, RLS, cliente web e Edge Functions preparados para integração.
+   - Conexões reais permanecem bloqueadas até a configuração de um provedor.
+   - Consulte [OPEN-FINANCE.md](OPEN-FINANCE.md) para implantação e requisitos de segurança.
+
 ---
 
 ## Como Executar
@@ -87,10 +94,14 @@ npm run check   # verificação de sintaxe de todos os JS
 | `js/app.js` | Interface e renderização |
 | `js/charts.js` | Gráficos (Chart.js) |
 | `js/sync.js` | Sincronização com Supabase |
+| `js/open-finance.js` | Cliente seguro e interface do Open Finance |
 | `js/sync-config.js` | URL e chave pública do Supabase (opcional) |
 | `sw.js` | Service Worker (cache e modo offline) |
+| `CHANGELOG.md` | Histórico organizado das versões |
 | `tests/` | Testes automatizados |
 | `supabase/schema.sql` | Tabela e políticas RLS da nuvem |
+| `supabase/open-finance-schema.sql` | Tabelas normalizadas e RLS do Open Finance |
+| `supabase/functions/` | Backend e contrato do provedor Open Finance |
 
 ---
 
