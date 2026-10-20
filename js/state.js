@@ -52,32 +52,175 @@ class FinancialState {
   loadSettings() {
     try {
       const stored = localStorage.getItem(this.SETTINGS_KEY);
-      return stored ? JSON.parse(stored) : { theme: 'dark', currency: 'BRL' };
+      return this.normalizeSettings(stored ? JSON.parse(stored) : {});
     } catch (e) {
       return { theme: 'dark', currency: 'BRL' };
     }
   }
 
   saveSettings(settings) {
-    this.settings = { ...this.settings, ...settings };
+    this.settings = this.normalizeSettings({ ...this.settings, ...settings });
     localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
+    this.notifyDataChanged();
+  }
+
+  normalizeSettings(settings) {
+    const source = settings && typeof settings === 'object' ? settings : {};
+    const currency = String(source.currency || 'BRL').toUpperCase();
+    const normalized = {
+      theme: source.theme === 'light' ? 'light' : 'dark',
+      currency: /^[A-Z]{3}$/.test(currency) ? currency : 'BRL'
+    };
+    const backupTime = typeof source.lastBackupAt === 'string' ? Date.parse(source.lastBackupAt) : NaN;
+    if (Number.isFinite(backupTime)) normalized.lastBackupAt = new Date(backupTime).toISOString();
+    const notifyDate = String(source.lastNotifyDate || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(notifyDate)) normalized.lastNotifyDate = notifyDate;
+    return normalized;
   }
 
   loadData() {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
-        const data = JSON.parse(stored);
-        data.accounts = this.normalizeAccounts(data.accounts);
-        data.customCategories = this.normalizeCustomCategories(data.customCategories);
-        data.recurring = this.normalizeRecurring(data.recurring);
-        return data;
+        const data = this.normalizeData(JSON.parse(stored));
+        if (data) return data;
       }
     } catch (e) {
       console.error('Erro ao carregar dados locais:', e);
     }
     // Carga inicial com dados demonstrativos inteligentes no mês corrente
     return this.generateSeedData();
+  }
+
+  safeText(value, fallback = '', maxLength = 200) {
+    const text = String(value ?? fallback)
+      .replace(/[\u0000-\u001F\u007F]/g, ' ')
+      .trim();
+    return (text || fallback).slice(0, maxLength);
+  }
+
+  safeId(value, prefix = 'id') {
+    const id = String(value || '').trim();
+    if (/^[A-Za-z0-9_-]{1,100}$/.test(id)) return id;
+    return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  }
+
+  safeIcon(value, fallback = 'ri-price-tag-3-line') {
+    const icon = String(value || '').trim();
+    return /^ri-[a-z0-9-]{1,80}$/.test(icon) ? icon : fallback;
+  }
+
+  safeColor(value, fallback = '#8b5cf6') {
+    const color = String(value || '').trim();
+    return /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : fallback;
+  }
+
+  safeDate(value, fallback = '') {
+    const date = String(value || '').trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    if (!match) return fallback;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const parsed = new Date(year, month - 1, day);
+    if (parsed.getFullYear() !== year || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return fallback;
+    return date;
+  }
+
+  safeAmount(value, fallback = 0) {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount >= 0 && amount <= Number.MAX_SAFE_INTEGER ? amount : fallback;
+  }
+
+  safeSignedAmount(value, fallback = 0) {
+    const amount = Number(value);
+    return Number.isFinite(amount) && Math.abs(amount) <= Number.MAX_SAFE_INTEGER ? amount : fallback;
+  }
+
+  normalizeTransactions(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set();
+    return raw.map(item => {
+      if (!item || typeof item !== 'object') return null;
+      const amount = this.safeAmount(item.amount, -1);
+      if (amount < 0) return null;
+      let id = this.safeId(item.id, 'tx');
+      if (seen.has(id)) id = this.safeId('', 'tx');
+      seen.add(id);
+
+      const type = ['income', 'expense', 'transfer'].includes(item.type) ? item.type : 'expense';
+      const tx = {
+        id,
+        description: this.safeText(item.description, type === 'transfer' ? 'Transferência entre contas' : 'Sem descrição', 160),
+        amount,
+        type,
+        category: type === 'transfer'
+          ? ''
+          : (/^[A-Za-z0-9_-]{1,100}$/.test(String(item.category || ''))
+            ? String(item.category)
+            : (type === 'income' ? 'cat_outros_inc' : 'cat_outros_exp')),
+        date: this.safeDate(item.date, this.todayStr()),
+        account: this.safeText(item.account, 'Conta Corrente', 100),
+        status: item.status === 'pending' ? 'pending' : 'paid',
+        dueDate: this.safeDate(item.dueDate, ''),
+        notes: this.safeText(item.notes, '', 1000)
+      };
+
+      if (type === 'transfer') {
+        tx.toAccount = this.safeText(item.toAccount, '', 100);
+        tx.fee = this.safeAmount(item.fee, 0);
+      }
+      if (item.fixed === true) {
+        tx.fixed = true;
+        tx.recurringId = item.recurringId ? this.safeId(item.recurringId, 'rec') : null;
+      }
+      if (item.installmentGroup) {
+        tx.installmentGroup = this.safeId(item.installmentGroup, 'inst');
+        tx.installmentCurrent = Math.max(1, parseInt(item.installmentCurrent, 10) || 1);
+        tx.installmentTotal = Math.max(tx.installmentCurrent, parseInt(item.installmentTotal, 10) || tx.installmentCurrent);
+        tx.totalAmount = this.safeAmount(item.totalAmount, amount);
+      }
+      return tx;
+    }).filter(Boolean);
+  }
+
+  normalizeData(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Array.isArray(raw.transactions)) return null;
+
+    const customCategories = this.normalizeCustomCategories(raw.customCategories);
+    const budgets = Array.isArray(raw.budgets) ? raw.budgets.map(item => {
+      if (!item || typeof item !== 'object') return null;
+      const monthlyLimit = this.safeAmount(item.monthlyLimit, -1);
+      if (monthlyLimit < 0) return null;
+      return {
+        id: this.safeId(item.id, 'bdg'),
+        categoryId: /^[A-Za-z0-9_-]{1,100}$/.test(String(item.categoryId || ''))
+          ? String(item.categoryId)
+          : 'cat_outros_exp',
+        monthlyLimit
+      };
+    }).filter(Boolean) : [];
+
+    const goals = Array.isArray(raw.goals) ? raw.goals.map(item => {
+      if (!item || typeof item !== 'object') return null;
+      return {
+        id: this.safeId(item.id, 'goal'),
+        title: this.safeText(item.title, 'Nova Meta', 120),
+        targetAmount: this.safeAmount(item.targetAmount, 0),
+        currentAmount: this.safeAmount(item.currentAmount, 0),
+        deadline: this.safeDate(item.deadline, ''),
+        icon: this.safeIcon(item.icon, 'ri-money-dollar-circle-line')
+      };
+    }).filter(Boolean) : [];
+
+    return {
+      transactions: this.normalizeTransactions(raw.transactions),
+      budgets,
+      goals,
+      accounts: this.normalizeAccounts(raw.accounts),
+      customCategories,
+      recurring: this.normalizeRecurring(raw.recurring)
+    };
   }
 
   saveData() {
@@ -277,7 +420,22 @@ class FinancialState {
       (Array.isArray(raw.expense) ? raw.expense : []).forEach(c => list.push({ ...c, type: 'expense' }));
     }
     // Mantém apenas categorias realmente customizadas (IDs que não existem nos padrões)
-    return list.filter(c => c && c.name && c.name.trim() !== '' && !defaultIds.includes(c.id));
+    const seen = new Set(defaultIds);
+    return list.map(c => {
+      if (!c || typeof c !== 'object') return null;
+      const name = this.safeText(c.name, '', 80);
+      if (!name) return null;
+      const id = this.safeId(c.id, 'cat_c');
+      if (seen.has(id)) return null;
+      seen.add(id);
+      return {
+        id,
+        name,
+        icon: this.safeIcon(c.icon),
+        color: this.safeColor(c.color),
+        type: c.type === 'income' ? 'income' : 'expense'
+      };
+    }).filter(Boolean);
   }
 
   normalizeAccounts(raw) {
@@ -301,7 +459,7 @@ class FinancialState {
 
   normalizeAccount(account) {
     if (typeof account === 'string') {
-      const name = account.trim();
+      const name = this.safeText(account, '', 100);
       if (!name) return null;
       return {
         id: 'acc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -314,14 +472,14 @@ class FinancialState {
       };
     }
     if (account && typeof account === 'object' && account.name) {
-      const name = String(account.name).trim();
+      const name = this.safeText(account.name, '', 100);
       if (!name) return null;
       return {
-        id: account.id || ('acc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+        id: this.safeId(account.id, 'acc'),
         name,
         type: this.ACCOUNT_TYPES[account.type] ? account.type : this.inferAccountType(name),
-        openingBalance: parseFloat(account.openingBalance) || 0,
-        creditLimit: parseFloat(account.creditLimit) || 0,
+        openingBalance: this.safeSignedAmount(account.openingBalance, 0),
+        creditLimit: this.safeAmount(account.creditLimit, 0),
         closingDay: this.clampDayOfMonth(account.closingDay),
         dueDay: this.clampDayOfMonth(account.dueDay)
       };
@@ -352,26 +510,28 @@ class FinancialState {
   }
 
   // --- CRUD Transações ---
-  addTransaction(tx) {
-    const type = tx.type || 'expense';
+  addTransaction(tx, options = {}) {
+    const type = ['income', 'expense', 'transfer'].includes(tx.type) ? tx.type : 'expense';
     const newTx = {
       id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      amount: parseFloat(tx.amount) || 0,
-      description: tx.description || (type === 'transfer' ? 'Transferência entre contas' : 'Sem descrição'),
+      amount: this.safeAmount(tx.amount, 0),
+      description: this.safeText(tx.description, type === 'transfer' ? 'Transferência entre contas' : 'Sem descrição', 160),
       type,
       category: type === 'transfer'
-        ? (tx.category || '')
-        : (tx.category || (type === 'income' ? 'cat_outros_inc' : 'cat_outros_exp')),
-      date: tx.date || new Date().toISOString().split('T')[0],
-      account: tx.account || 'Conta Corrente',
-      status: tx.status || 'paid',
-      dueDate: tx.dueDate || '',
-      notes: tx.notes || ''
+        ? ''
+        : (/^[A-Za-z0-9_-]{1,100}$/.test(String(tx.category || ''))
+          ? String(tx.category)
+          : (type === 'income' ? 'cat_outros_inc' : 'cat_outros_exp')),
+      date: this.safeDate(tx.date, this.todayStr()),
+      account: this.safeText(tx.account, 'Conta Corrente', 100),
+      status: tx.status === 'pending' ? 'pending' : 'paid',
+      dueDate: this.safeDate(tx.dueDate, ''),
+      notes: this.safeText(tx.notes, '', 1000)
     };
 
     if (type === 'transfer') {
-      newTx.toAccount = tx.toAccount || '';
-      newTx.fee = parseFloat(tx.fee) || 0;
+      newTx.toAccount = this.safeText(tx.toAccount, '', 100);
+      newTx.fee = this.safeAmount(tx.fee, 0);
     }
 
     // Compra no cartão de crédito vira dívida da fatura: só é paga quando a
@@ -391,7 +551,7 @@ class FinancialState {
     }
 
     this.data.transactions.unshift(newTx);
-    this.saveData();
+    if (options.save !== false) this.saveData();
     return newTx;
   }
 
@@ -664,11 +824,13 @@ class FinancialState {
     const index = this.data.transactions.findIndex(t => t.id === id);
     if (index !== -1) {
       const before = this.data.transactions[index];
-      const merged = {
+      const mergedInput = {
         ...before,
         ...updatedFields,
-        amount: parseFloat(updatedFields.amount ?? before.amount)
+        id: before.id
       };
+      const merged = this.normalizeTransactions([mergedInput])[0];
+      if (!merged) return null;
 
       // Compra no cartão só pode ser marcada como paga pelo pagamento da fatura
       if (before.status === 'pending' && merged.status === 'paid' && this.isCreditCardExpense(merged)) {
@@ -715,11 +877,11 @@ class FinancialState {
   addGoal(goal) {
     const newGoal = {
       id: 'goal_' + Date.now(),
-      title: goal.title || 'Nova Meta',
-      targetAmount: parseFloat(goal.targetAmount) || 0,
-      currentAmount: parseFloat(goal.currentAmount) || 0,
-      deadline: goal.deadline || '',
-      icon: goal.icon || 'ri-money-dollar-circle-line'
+      title: this.safeText(goal.title, 'Nova Meta', 120),
+      targetAmount: this.safeAmount(goal.targetAmount, 0),
+      currentAmount: this.safeAmount(goal.currentAmount, 0),
+      deadline: this.safeDate(goal.deadline, ''),
+      icon: this.safeIcon(goal.icon, 'ri-money-dollar-circle-line')
     };
     this.data.goals.push(newGoal);
     this.saveData();
@@ -729,9 +891,11 @@ class FinancialState {
   updateGoal(id, fields) {
     const goal = this.data.goals.find(g => g.id === id);
     if (goal) {
-      Object.assign(goal, fields);
-      if (fields.targetAmount !== undefined) goal.targetAmount = parseFloat(fields.targetAmount) || 0;
-      if (fields.currentAmount !== undefined) goal.currentAmount = parseFloat(fields.currentAmount) || 0;
+      if (fields.title !== undefined) goal.title = this.safeText(fields.title, goal.title, 120);
+      if (fields.targetAmount !== undefined) goal.targetAmount = this.safeAmount(fields.targetAmount, 0);
+      if (fields.currentAmount !== undefined) goal.currentAmount = this.safeAmount(fields.currentAmount, 0);
+      if (fields.deadline !== undefined) goal.deadline = this.safeDate(fields.deadline, '');
+      if (fields.icon !== undefined) goal.icon = this.safeIcon(fields.icon, goal.icon);
       this.saveData();
       return goal;
     }
@@ -783,9 +947,9 @@ class FinancialState {
   addCategory({ name, icon, color, type } = {}) {
     const newCat = {
       id: 'cat_c' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      name: String(name || '').trim(),
-      icon: icon || 'ri-price-tag-3-line',
-      color: color || '#8b5cf6',
+      name: this.safeText(name, '', 80),
+      icon: this.safeIcon(icon),
+      color: this.safeColor(color),
       type: type === 'income' ? 'income' : 'expense'
     };
     if (!newCat.name) return null;
@@ -797,9 +961,9 @@ class FinancialState {
   updateCategory(id, fields = {}) {
     const cat = this.data.customCategories.find(c => c.id === id);
     if (!cat) return null;
-    if (fields.name !== undefined) cat.name = String(fields.name).trim() || cat.name;
-    if (fields.color !== undefined) cat.color = fields.color;
-    if (fields.icon !== undefined) cat.icon = fields.icon;
+    if (fields.name !== undefined) cat.name = this.safeText(fields.name, cat.name, 80);
+    if (fields.color !== undefined) cat.color = this.safeColor(fields.color, cat.color);
+    if (fields.icon !== undefined) cat.icon = this.safeIcon(fields.icon, cat.icon);
     this.saveData();
     return cat;
   }
@@ -1400,22 +1564,28 @@ class FinancialState {
 
   normalizeRecurring(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(r => r && parseFloat(r.amount) > 0).map(r => ({
-      id: r.id || ('rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
-      type: ['income', 'expense', 'transfer'].includes(r.type) ? r.type : 'expense',
-      description: String(r.description || 'Lançamento recorrente').trim(),
-      amount: parseFloat(r.amount) || 0,
-      category: r.category || '',
-      account: r.account || '',
-      toAccount: r.toAccount || '',
-      fee: parseFloat(r.fee) || 0,
-      frequency: r.frequency === 'weekly' ? 'weekly' : 'monthly',
-      dayOfMonth: Math.min(Math.max(parseInt(r.dayOfMonth, 10) || 1, 1), 28),
-      weekday: Math.min(Math.max(parseInt(r.weekday, 10) || 0, 0), 6),
-      nextDate: r.nextDate || this.todayStr(),
-      status: r.status === 'pending' ? 'pending' : 'paid',
-      active: r.active !== false
-    }));
+    const seen = new Set();
+    return raw.filter(r => r && this.safeAmount(r.amount, 0) > 0).map(r => {
+      let id = this.safeId(r.id, 'rec');
+      if (seen.has(id)) id = this.safeId('', 'rec');
+      seen.add(id);
+      return {
+        id,
+        type: ['income', 'expense', 'transfer'].includes(r.type) ? r.type : 'expense',
+        description: this.safeText(r.description, 'Lançamento recorrente', 160),
+        amount: this.safeAmount(r.amount, 0),
+        category: /^[A-Za-z0-9_-]{1,100}$/.test(String(r.category || '')) ? String(r.category) : '',
+        account: this.safeText(r.account, '', 100),
+        toAccount: this.safeText(r.toAccount, '', 100),
+        fee: this.safeAmount(r.fee, 0),
+        frequency: r.frequency === 'weekly' ? 'weekly' : 'monthly',
+        dayOfMonth: Math.min(Math.max(parseInt(r.dayOfMonth, 10) || 1, 1), 28),
+        weekday: Math.min(Math.max(parseInt(r.weekday, 10) || 0, 0), 6),
+        nextDate: this.safeDate(r.nextDate, this.todayStr()),
+        status: r.status === 'pending' ? 'pending' : 'paid',
+        active: r.active !== false
+      };
+    });
   }
 
   addRecurring(rule) {
@@ -1452,14 +1622,14 @@ class FinancialState {
     return `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
   }
 
-  processRecurring(today = this.todayStr()) {
+  processRecurring(untilDate = this.todayStr(), referenceDate = this.todayStr()) {
     if (!Array.isArray(this.data.recurring) || this.data.recurring.length === 0) return 0;
     let created = 0;
 
     this.data.recurring.forEach(rule => {
       if (rule.active === false) return;
       let guard = 0;
-      while (rule.nextDate && rule.nextDate <= today && guard < 240) {
+      while (rule.nextDate && rule.nextDate <= untilDate && guard < 240) {
         const txData = {
           type: rule.type,
           description: rule.description,
@@ -1468,7 +1638,7 @@ class FinancialState {
           account: rule.account,
           date: rule.nextDate,
           dueDate: rule.nextDate,
-          status: rule.nextDate > this.todayStr() ? 'pending' : (rule.status || 'paid'),
+          status: rule.nextDate > referenceDate ? 'pending' : (rule.status || 'paid'),
           notes: 'Gerado automaticamente (recorrente)',
           fixed: true,
           recurringId: rule.id
@@ -1477,7 +1647,7 @@ class FinancialState {
           txData.toAccount = rule.toAccount;
           txData.fee = rule.fee;
         }
-        this.addTransaction(txData);
+        this.addTransaction(txData, { save: false });
         created++;
         guard++;
         rule.nextDate = this.computeNextOccurrence(rule, this.addDays(rule.nextDate, 1));
@@ -1810,10 +1980,9 @@ class FinancialState {
   importJSON(jsonString) {
     try {
       const parsed = JSON.parse(jsonString);
-      if (parsed && parsed.transactions && Array.isArray(parsed.transactions)) {
-        this.data = parsed;
-        this.data.accounts = this.normalizeAccounts(this.data.accounts);
-        this.data.customCategories = this.normalizeCustomCategories(this.data.customCategories);
+      const normalized = this.normalizeData(parsed);
+      if (normalized) {
+        this.data = normalized;
         this.saveData();
         return true;
       }

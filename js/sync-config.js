@@ -13,3 +13,19 @@ window.FINANZEN_SUPABASE = {
   anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZGhwZHNma2RrYXl4ZWdxZmFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2ODU1MDUsImV4cCI6MjEwNTI2MTUwNX0.WajR2uV5Z2PmYPgk3Gx2cNB55X8csUbRY0MH7yMQBkE',
   table: 'finanzen_data'
 };
+
+/**
+ * Configuração pública do Open Finance.
+ *
+ * Não coloque client secret, token de conexão ou segredo de webhook aqui.
+ * Esses valores pertencem exclusivamente aos secrets das Edge Functions.
+ */
+window.FINANZEN_OPEN_FINANCE = {
+  enabled: false,
+  provider: '',
+  functions: {
+    connect: 'open-finance-connect',
+    sync: 'open-finance-sync',
+    disconnect: 'open-finance-disconnect'
+  }
+};

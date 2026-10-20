@@ -62,6 +62,7 @@
 
       this.client.auth.onAuthStateChange((event, session) => {
         this.user = session ? session.user : null;
+        this.notifyOpenFinance();
         if (event === 'SIGNED_IN' && this.user) {
           this.status = 'syncing';
           this.render();
@@ -75,6 +76,7 @@
       this.user = data.session ? data.session.user : null;
       this.status = this.user ? 'synced' : 'signed-out';
       this.render();
+      this.notifyOpenFinance();
 
       // Sessão já existente (ex.: reabrir o app): busca novidades da nuvem
       if (this.user) {
@@ -154,14 +156,25 @@
     async push() {
       if (!this.user) return { error: 'Não autenticado.' };
       this.setStatus('syncing');
+      const payload = this.payload();
       const { error } = await this.client
         .from(this.table())
-        .upsert(this.payload(), { onConflict: 'user_id' });
+        .upsert(payload, { onConflict: 'user_id' });
 
       if (error) { this.setError(error.message); return { error: error.message }; }
 
-      this.lastSyncedAt = new Date().toISOString();
-      this.saveMeta({ lastSyncedAt: this.lastSyncedAt });
+      // Usa o timestamp persistido pelo servidor. Comparar horário do servidor
+      // com o relógio local pode fazer um aparelho adiantado ignorar mudanças.
+      const { data: savedRow } = await this.client
+        .from(this.table())
+        .select('updated_at')
+        .eq('user_id', this.user.id)
+        .maybeSingle();
+      this.lastSyncedAt = (savedRow && savedRow.updated_at) || payload.updated_at;
+      this.saveMeta({
+        lastSyncedAt: this.lastSyncedAt,
+        lastLocalChangeAt: this.localChangeTime()
+      });
       this.setStatus('synced');
       return { ok: true };
     },
@@ -184,12 +197,14 @@
       if (!row || !row.data) return { ok: true, empty: true };
 
       const state = window.financialState;
+      const normalized = state.normalizeData(row.data);
+      if (!normalized) {
+        this.setError('Dados inválidos recebidos da nuvem.');
+        return { error: this.lastError };
+      }
       state._suspendSync = true;
       try {
-        state.data = row.data;
-        state.data.accounts = state.normalizeAccounts(state.data.accounts);
-        state.data.customCategories = state.normalizeCustomCategories(state.data.customCategories);
-        state.data.recurring = state.normalizeRecurring(state.data.recurring);
+        state.data = normalized;
         if (row.settings) state.saveSettings(row.settings);
         localStorage.setItem(state.STORAGE_KEY, JSON.stringify(state.data));
       } finally {
@@ -197,7 +212,10 @@
       }
 
       this.lastSyncedAt = row.updated_at || new Date().toISOString();
-      this.saveMeta({ lastSyncedAt: this.lastSyncedAt });
+      this.saveMeta({
+        lastSyncedAt: this.lastSyncedAt,
+        lastLocalChangeAt: this.localChangeTime()
+      });
       this.setStatus('synced');
       if (window.app && typeof window.app.renderAll === 'function') window.app.renderAll();
       return { ok: true };
@@ -210,13 +228,29 @@
 
       if (!row || !row.data) return this.push();
 
-      const remoteTime = new Date(row.updated_at).getTime();
-      const localTime = this.lastLocalChangeTime();
+      const meta = this.loadMeta();
+      const remoteTime = new Date(row.updated_at || 0).getTime();
+      const syncedTime = new Date(meta.lastSyncedAt || 0).getTime();
+      const lastRecordedLocalChange = parseInt(meta.lastLocalChangeAt || '0', 10) || 0;
+      const hasUnsyncedLocalChanges = this.localChangeTime() > lastRecordedLocalChange;
 
-      if (remoteTime > localTime) {
-        return this.pull();
+      if (hasUnsyncedLocalChanges) return this.push();
+      if (remoteTime > syncedTime) return this.pull();
+      if (remoteTime < syncedTime) return this.push();
+
+      this.lastSyncedAt = row.updated_at || this.lastSyncedAt;
+      this.setStatus('synced');
+      return { ok: true, unchanged: true };
+    },
+
+    localChangeTime() {
+      const state = window.financialState;
+      const key = (state && state.LAST_CHANGE_KEY) || 'finanzen_last_local_change';
+      try {
+        return parseInt(localStorage.getItem(key) || '0', 10) || 0;
+      } catch (e) {
+        return 0;
       }
-      return this.push();
     },
 
     // Hora real da última alteração local (não apenas do último sync).
@@ -226,16 +260,7 @@
       const meta = this.loadMeta();
       const syncedAt = new Date(meta.lastSyncedAt || 0).getTime();
 
-      const state = window.financialState;
-      const key = (state && state.LAST_CHANGE_KEY) || 'finanzen_last_local_change';
-      let localChange = 0;
-      try {
-        localChange = parseInt(localStorage.getItem(key) || '0', 10) || 0;
-      } catch (e) {
-        localChange = 0;
-      }
-
-      return Math.max(syncedAt, localChange);
+      return Math.max(syncedAt, this.localChangeTime());
     },
 
     // Chamado pelo app sempre que os dados mudam (com debounce)
@@ -261,10 +286,19 @@
       this.render();
     },
 
+    notifyOpenFinance() {
+      if (window.financeOpenFinance && typeof window.financeOpenFinance.onAuthChanged === 'function') {
+        window.financeOpenFinance.onAuthChanged();
+      }
+    },
+
     // ---- UI ----
     render() {
       if (window.app && typeof window.app.renderSyncPanel === 'function') {
         window.app.renderSyncPanel();
+      }
+      if (window.app && typeof window.app.renderOpenFinancePanel === 'function') {
+        window.app.renderOpenFinancePanel();
       }
     }
   };

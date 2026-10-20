@@ -60,8 +60,8 @@ class FinanceCharts {
           {
             label: 'Receitas',
             data: flowData.income,
-            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-            borderColor: '#10b981',
+            backgroundColor: 'rgba(45, 212, 191, 0.82)',
+            borderColor: '#2dd4bf',
             borderRadius: 6,
             borderSkipped: false,
             maxBarThickness: 28
@@ -69,8 +69,8 @@ class FinanceCharts {
           {
             label: 'Despesas',
             data: flowData.expense,
-            backgroundColor: 'rgba(244, 63, 94, 0.85)',
-            borderColor: '#f43f5e',
+            backgroundColor: 'rgba(251, 113, 133, 0.82)',
+            borderColor: '#fb7185',
             borderRadius: 6,
             borderSkipped: false,
             maxBarThickness: 28
@@ -241,9 +241,9 @@ class FinanceCharts {
     let gradient = null;
     if (chartCtx) {
       gradient = chartCtx.createLinearGradient(0, 0, 0, 260);
-      gradient.addColorStop(0, 'rgba(99, 102, 241, 0.45)');
-      gradient.addColorStop(0.7, 'rgba(168, 85, 247, 0.12)');
-      gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+      gradient.addColorStop(0, 'rgba(124, 108, 255, 0.48)');
+      gradient.addColorStop(0.7, 'rgba(34, 211, 238, 0.13)');
+      gradient.addColorStop(1, 'rgba(124, 108, 255, 0)');
     }
 
     this.netWorthChartInstance = new Chart(ctx, {
@@ -254,17 +254,17 @@ class FinanceCharts {
           {
             label: 'Patrimônio Líquido',
             data: data.values,
-            borderColor: '#6366f1',
+            borderColor: '#7c6cff',
             borderWidth: 2.5,
-            backgroundColor: gradient || 'rgba(99, 102, 241, 0.15)',
+            backgroundColor: gradient || 'rgba(124, 108, 255, 0.16)',
             fill: true,
             tension: 0.38,
-            pointBackgroundColor: '#a855f7',
+            pointBackgroundColor: '#22d3ee',
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.5,
             pointRadius: 4,
             pointHoverRadius: 6,
-            pointHoverBackgroundColor: '#6366f1',
+            pointHoverBackgroundColor: '#7c6cff',
             pointHoverBorderColor: '#ffffff',
             pointHoverBorderWidth: 2
           }

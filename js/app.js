@@ -20,15 +20,18 @@ document.addEventListener('DOMContentLoaded', () => {
       this.setupPeriodSelector();
       this.setupNavigation();
       this.setupModals();
+      this.setupQuickCreate();
       this.setupForms();
       this.setupFilters();
       this.setupBackupActions();
       this.setupReportActions();
       this.setupDueReminders();
       this.setupSyncActions();
+      this.setupOpenFinanceActions();
       this.setupPwaInstall();
       this.setupCustomization();
       this.setupMobileMenu();
+      this.setupSpatialInteractions();
       this.processRecurringOnLoad();
       this.renderAll();
       this.renderSyncPanel();
@@ -55,11 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById(id);
         if (btn) {
           btn.addEventListener('click', () => {
+            document.body.classList.add('theme-changing');
             const isLight = document.body.classList.toggle('light-theme');
             const newTheme = isLight ? 'light' : 'dark';
             window.financialState.saveSettings({ theme: newTheme });
             this.updateThemeButtonUI(newTheme);
             this.showToast(`Modo ${newTheme === 'light' ? 'Claro' : 'Escuro'} ativado`, 'info');
+            setTimeout(() => document.body.classList.remove('theme-changing'), 650);
           });
         }
       });
@@ -310,6 +315,19 @@ document.addEventListener('DOMContentLoaded', () => {
           const activeSection = document.getElementById(`tab-${targetTab}`);
           if (activeSection) {
             activeSection.classList.add('active');
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+              activeSection.classList.remove('tab-entering');
+              void activeSection.offsetWidth;
+              activeSection.classList.add('tab-entering');
+              let entryTimer = 0;
+              const clearEntry = () => {
+                activeSection.classList.remove('tab-entering');
+                activeSection.removeEventListener('animationend', clearEntry);
+                clearTimeout(entryTimer);
+              };
+              activeSection.addEventListener('animationend', clearEntry);
+              entryTimer = setTimeout(clearEntry, 700);
+            }
           }
 
           this.currentTab = targetTab;
@@ -385,6 +403,160 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
+    // --- Atalho global de criação ---
+    setupQuickCreate() {
+      const root = document.getElementById('quick-create');
+      const button = document.getElementById('quick-create-btn');
+      const menu = document.getElementById('quick-create-menu');
+      if (!root || !button || !menu) return;
+
+      const items = [...menu.querySelectorAll('[role="menuitem"]')];
+      const setOpen = (open, focusFirst = false) => {
+        root.classList.toggle('open', open);
+        button.setAttribute('aria-expanded', String(open));
+        menu.setAttribute('aria-hidden', String(!open));
+        if (open && focusFirst) requestAnimationFrame(() => items[0]?.focus());
+      };
+
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setOpen(!root.classList.contains('open'));
+      });
+
+      button.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        setOpen(true, true);
+      });
+
+      menu.addEventListener('click', (event) => {
+        const item = event.target.closest('.quick-create-item');
+        if (!item) return;
+        const action = item.dataset.createAction;
+        setOpen(false);
+
+        if (action === 'account') this.openNewAccountModal();
+        if (action === 'budget') this.openNewBudgetModal();
+        if (action === 'goal') this.openNewGoalModal();
+      });
+
+      menu.addEventListener('keydown', (event) => {
+        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const current = Math.max(0, items.indexOf(document.activeElement));
+        let next = current;
+        if (event.key === 'ArrowDown') next = (current + 1) % items.length;
+        if (event.key === 'ArrowUp') next = (current - 1 + items.length) % items.length;
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = items.length - 1;
+        items[next]?.focus();
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!root.contains(event.target)) setOpen(false);
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !root.classList.contains('open')) return;
+        setOpen(false);
+        button.focus();
+      });
+    },
+
+    renderDashboardContext() {
+      const context = document.getElementById('dashboard-period-context');
+      if (!context) return;
+
+      if (this.selectedPeriod === 'all') {
+        context.textContent = 'Uma visão consolidada de todo o seu histórico financeiro.';
+        return;
+      }
+      if (/^\d{4}$/.test(String(this.selectedPeriod))) {
+        context.textContent = `Entradas, saídas e evolução financeira durante ${this.selectedPeriod}.`;
+        return;
+      }
+      context.textContent = `Entradas, saídas e pontos de atenção em ${this.periodLabel(this.selectedPeriod)}.`;
+    },
+
+    // --- Microinterações e profundidade 3D ---
+    setupSpatialInteractions() {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const canTilt = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+        && !reducedMotion.matches;
+      // O efeito espacial fica restrito ao cartão físico, onde a profundidade
+      // ajuda a metáfora. Cards operacionais permanecem estáveis para leitura.
+      const tiltSelector = '.credit-card-card';
+
+      if (canTilt) {
+        document.body.classList.add('spatial-ui');
+        let activeCard = null;
+        let activeRect = null;
+        let pointerX = 0;
+        let pointerY = 0;
+        let tiltFrame = 0;
+
+        const resetCard = (card) => {
+          if (!card) return;
+          card.classList.remove('is-tilting');
+          card.style.removeProperty('--tilt-x');
+          card.style.removeProperty('--tilt-y');
+          card.style.removeProperty('--pointer-x');
+          card.style.removeProperty('--pointer-y');
+        };
+
+        const paintTilt = () => {
+          tiltFrame = 0;
+          if (!activeCard || !activeRect || !activeCard.isConnected) return;
+          const x = Math.min(1, Math.max(0, (pointerX - activeRect.left) / activeRect.width));
+          const y = Math.min(1, Math.max(0, (pointerY - activeRect.top) / activeRect.height));
+          activeCard.style.setProperty('--tilt-x', `${((0.5 - y) * 5).toFixed(2)}deg`);
+          activeCard.style.setProperty('--tilt-y', `${((x - 0.5) * 7).toFixed(2)}deg`);
+          activeCard.style.setProperty('--pointer-x', `${(x * 100).toFixed(1)}%`);
+          activeCard.style.setProperty('--pointer-y', `${(y * 100).toFixed(1)}%`);
+          activeCard.classList.add('is-tilting');
+        };
+
+        document.addEventListener('pointermove', (event) => {
+          const card = event.target.closest(tiltSelector);
+          if (!card) return;
+          if (card !== activeCard) {
+            resetCard(activeCard);
+            activeCard = card;
+            activeRect = card.getBoundingClientRect();
+            if (!activeRect.width || !activeRect.height) return;
+          }
+          pointerX = event.clientX;
+          pointerY = event.clientY;
+          if (!tiltFrame) tiltFrame = requestAnimationFrame(paintTilt);
+        }, { passive: true });
+
+        document.addEventListener('pointerout', (event) => {
+          const card = event.target.closest(tiltSelector);
+          if (!card || (event.relatedTarget && card.contains(event.relatedTarget))) return;
+          resetCard(card);
+          if (card === activeCard) {
+            activeCard = null;
+            activeRect = null;
+          }
+        }, { passive: true });
+      }
+
+      document.addEventListener('click', (event) => {
+        if (reducedMotion.matches) return;
+        const control = event.target.closest('.btn, .action-btn, .nav-item, .period-selector-btn, .pagination-btn');
+        if (!control || control.disabled) return;
+        const rect = control.getBoundingClientRect();
+        const ripple = document.createElement('span');
+        ripple.className = 'interaction-ripple';
+        ripple.style.left = `${event.clientX ? event.clientX - rect.left : rect.width / 2}px`;
+        ripple.style.top = `${event.clientY ? event.clientY - rect.top : rect.height / 2}px`;
+        control.appendChild(ripple);
+        const removeRipple = () => ripple.remove();
+        ripple.addEventListener('animationend', removeRipple, { once: true });
+        setTimeout(removeRipple, 750);
+      });
+    },
+
     // --- Formatação Monetária ---
     formatCurrency(val) {
       const currency = (window.financialState.settings.currency) || 'BRL';
@@ -433,6 +605,8 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderSettingsLists();
       this.renderDataSummary();
       this.renderDueReminders();
+      this.renderDashboardContext();
+      this.renderOpenFinancePanel();
     },
 
     // --- Resumo de Dados (Aba Backup & Dados) ---
@@ -915,6 +1089,154 @@ document.addEventListener('DOMContentLoaded', () => {
           await sync.signOut();
           this.showToast('Desconectado.', 'info');
           this.renderSyncPanel();
+        }
+      });
+    },
+
+    // --- Open Finance (UI) ---
+    openFinanceStatusMeta(status) {
+      const statuses = {
+        pending: { label: 'Aguardando autorização', className: 'pending', icon: 'ri-time-line' },
+        active: { label: 'Conectado', className: 'active', icon: 'ri-checkbox-circle-line' },
+        attention: { label: 'Requer atenção', className: 'attention', icon: 'ri-error-warning-line' },
+        expired: { label: 'Consentimento expirado', className: 'expired', icon: 'ri-timer-line' },
+        revoked: { label: 'Revogado', className: 'revoked', icon: 'ri-forbid-line' },
+        error: { label: 'Erro na conexão', className: 'error', icon: 'ri-close-circle-line' }
+      };
+      return statuses[status] || statuses.pending;
+    },
+
+    renderOpenFinancePanel() {
+      const panel = document.getElementById('open-finance-panel');
+      if (!panel) return;
+
+      const sync = window.financeSync;
+      const service = window.financeOpenFinance;
+
+      if (!service) {
+        panel.innerHTML = '<p class="sync-note">Módulo de Open Finance indisponível.</p>';
+        return;
+      }
+
+      if (!sync || !sync.isConfigured()) {
+        panel.innerHTML = `
+          <div class="open-finance-state">
+            <i class="ri-cloud-off-line"></i>
+            <div>
+              <strong>Configure a nuvem primeiro</strong>
+              <span>O Open Finance precisa do Supabase para processar dados com segurança fora do navegador.</span>
+            </div>
+          </div>`;
+        return;
+      }
+
+      if (!sync.user) {
+        panel.innerHTML = `
+          <div class="open-finance-state">
+            <i class="ri-lock-line"></i>
+            <div>
+              <strong>Entre na sua conta</strong>
+              <span>Use a seção “Sincronização em Nuvem” acima antes de conectar uma instituição.</span>
+            </div>
+          </div>`;
+        return;
+      }
+
+      if (!service.isEnabled()) {
+        panel.innerHTML = `
+          <div class="open-finance-state open-finance-state-ready">
+            <i class="ri-tools-line"></i>
+            <div>
+              <strong>Base técnica instalada</strong>
+              <span>As tabelas, regras de segurança e interface estão prontas. Falta selecionar e configurar o provedor para liberar conexões reais.</span>
+            </div>
+          </div>
+          <div class="open-finance-checklist" aria-label="Etapas da integração">
+            <span class="done"><i class="ri-check-line"></i> Modelo de dados</span>
+            <span class="done"><i class="ri-check-line"></i> Segurança por usuário</span>
+            <span><i class="ri-number-3"></i> Provedor e sandbox</span>
+          </div>`;
+        return;
+      }
+
+      const isLoading = service.status === 'loading';
+      const connections = Array.isArray(service.connections) ? service.connections : [];
+      const connectionCards = connections.map(connection => {
+        const meta = this.openFinanceStatusMeta(connection.status);
+        const lastSync = connection.last_synced_at ? this.formatDateTime(connection.last_synced_at) : 'Ainda não sincronizado';
+        const consent = connection.consent_expires_at
+          ? `Consentimento até ${this.formatDate(connection.consent_expires_at.slice(0, 10))}`
+          : 'Validade informada pela instituição';
+        const actionable = !['revoked'].includes(connection.status);
+
+        return `
+          <article class="open-finance-connection">
+            <div class="open-finance-bank-mark"><i class="ri-bank-line"></i></div>
+            <div class="open-finance-connection-main">
+              <div class="open-finance-connection-title">
+                <strong>${this.escapeHtml(connection.institution_name || 'Instituição financeira')}</strong>
+                <span class="open-finance-status ${meta.className}"><i class="${meta.icon}"></i>${meta.label}</span>
+              </div>
+              <span>${this.escapeHtml(consent)} · ${this.escapeHtml(lastSync)}</span>
+              ${connection.last_error_message ? `<small>${this.escapeHtml(connection.last_error_message)}</small>` : ''}
+            </div>
+            <div class="open-finance-actions">
+              ${actionable ? `<button class="btn btn-secondary btn-sm" type="button" data-open-finance-action="sync" data-connection-id="${this.escapeHtml(connection.id)}" ${isLoading ? 'disabled' : ''}><i class="ri-refresh-line"></i> Atualizar</button>` : ''}
+              ${actionable ? `<button class="btn btn-secondary btn-sm" type="button" data-open-finance-action="disconnect" data-connection-id="${this.escapeHtml(connection.id)}" ${isLoading ? 'disabled' : ''}><i class="ri-link-unlink-m"></i> Revogar</button>` : ''}
+            </div>
+          </article>`;
+      }).join('');
+
+      panel.innerHTML = `
+        ${service.lastError ? `<p class="sync-error"><i class="ri-error-warning-line"></i> ${this.escapeHtml(service.lastError)}</p>` : ''}
+        ${connectionCards || `
+          <div class="open-finance-state">
+            <i class="ri-link"></i>
+            <div>
+              <strong>Nenhuma instituição conectada</strong>
+              <span>Você escolherá o banco e confirmará o consentimento no ambiente seguro da instituição.</span>
+            </div>
+          </div>`}
+        <div class="open-finance-footer">
+          <button class="btn btn-primary" type="button" data-open-finance-action="connect" ${isLoading ? 'disabled' : ''}>
+            <i class="${isLoading ? 'ri-loader-4-line open-finance-spin' : 'ri-add-circle-line'}"></i>
+            ${isLoading ? 'Processando...' : 'Conectar instituição'}
+          </button>
+          <span><i class="ri-shield-check-line"></i> O FinanZen nunca solicita sua senha bancária.</span>
+        </div>`;
+    },
+
+    setupOpenFinanceActions() {
+      const panel = document.getElementById('open-finance-panel');
+      if (!panel) return;
+
+      panel.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-open-finance-action]');
+        if (!button || button.disabled) return;
+
+        const service = window.financeOpenFinance;
+        if (!service) return;
+        const action = button.dataset.openFinanceAction;
+        const connectionId = button.dataset.connectionId || '';
+
+        if (action === 'connect') {
+          const result = await service.connect();
+          if (result && result.error) this.showToast(result.error, 'error');
+          return;
+        }
+
+        if (!connectionId) return;
+        if (action === 'sync') {
+          this.showToast('Atualizando dados da instituição...', 'info');
+          const result = await service.sync(connectionId);
+          this.showToast(result && result.error ? result.error : 'Atualização solicitada com sucesso.', result && result.error ? 'error' : 'success');
+          return;
+        }
+
+        if (action === 'disconnect') {
+          if (!confirm('Revogar esta conexão e interromper as coletas automáticas?')) return;
+          const result = await service.disconnect(connectionId);
+          this.showToast(result && result.error ? result.error : 'Conexão revogada.', result && result.error ? 'error' : 'success');
         }
       });
     },
@@ -1544,21 +1866,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>Taxa de Poupança (meta 25%+)</span>
                 <strong>${scoreData.breakdown.savings}%</strong>
               </div>
-              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: #10b981;"></div></div>
+              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: var(--income);"></div></div>
             </div>
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
                 <span>Controle de Orçamentos</span>
                 <strong>${scoreData.breakdown.budget}%</strong>
               </div>
-              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: #6366f1;"></div></div>
+              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: var(--accent-primary);"></div></div>
             </div>
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
                 <span>Progresso em Metas</span>
                 <strong>${scoreData.breakdown.goals}%</strong>
               </div>
-              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.goals}%; background: #a855f7;"></div></div>
+              <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.goals}%; background: var(--accent-secondary);"></div></div>
             </div>
           </div>
         `;
@@ -1619,7 +1941,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${scoreData.breakdown.savings}%</strong>
               </div>
               <div class="score-meter-track">
-                <div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: #10b981;"></div>
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: var(--income);"></div>
               </div>
             </div>
 
@@ -1629,7 +1951,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${scoreData.breakdown.budget}%</strong>
               </div>
               <div class="score-meter-track">
-                <div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: #6366f1;"></div>
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: var(--accent-primary);"></div>
               </div>
             </div>
 
@@ -1639,7 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${scoreData.breakdown.income}%</strong>
               </div>
               <div class="score-meter-track">
-                <div class="score-meter-fill" style="width: ${scoreData.breakdown.income}%; background: #06b6d4;"></div>
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.income}%; background: var(--info);"></div>
               </div>
             </div>
 
@@ -1649,7 +1971,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${scoreData.breakdown.goals}%</strong>
               </div>
               <div class="score-meter-track">
-                <div class="score-meter-fill" style="width: ${scoreData.breakdown.goals}%; background: #a855f7;"></div>
+                <div class="score-meter-fill" style="width: ${scoreData.breakdown.goals}%; background: var(--accent-secondary);"></div>
               </div>
             </div>
           </div>
@@ -3037,7 +3359,7 @@ populateTxCategories(type, selectedCatId = null) {
 
     getCardGradient(style) {
       switch (style) {
-        case 'purple': return 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)';
+        case 'purple': return 'linear-gradient(135deg, #7c6cff 0%, #22d3ee 100%)';
         case 'orange': return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
         case 'black': return 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)';
         case 'emerald': return 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
@@ -3415,20 +3737,24 @@ populateTxCategories(type, selectedCatId = null) {
       }
 
       const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
+      const safeType = ['success', 'error', 'warning', 'info'].includes(type) ? type : 'info';
+      toast.className = `toast ${safeType}`;
 
       let icon = 'ri-information-line';
-      if (type === 'success') icon = 'ri-checkbox-circle-line';
-      if (type === 'error') icon = 'ri-error-warning-line';
-      if (type === 'warning') icon = 'ri-alert-line';
+      if (safeType === 'success') icon = 'ri-checkbox-circle-line';
+      if (safeType === 'error') icon = 'ri-error-warning-line';
+      if (safeType === 'warning') icon = 'ri-alert-line';
 
-      toast.innerHTML = `
-        <div class="toast-body">
-          <i class="${icon}"></i>
-          <span>${message}</span>
-        </div>
-        <div class="toast-progress"></div>
-      `;
+      const body = document.createElement('div');
+      body.className = 'toast-body';
+      const iconElement = document.createElement('i');
+      iconElement.className = icon;
+      const messageElement = document.createElement('span');
+      messageElement.textContent = String(message ?? '');
+      const progress = document.createElement('div');
+      progress.className = 'toast-progress';
+      body.append(iconElement, messageElement);
+      toast.append(body, progress);
 
       container.appendChild(toast);
 
