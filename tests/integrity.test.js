@@ -104,6 +104,38 @@ test('estrutura principal do HTML preservada (7 abas + seções essenciais)', ()
   }
 });
 
+test('botão Novo usa portal responsivo e possui gatilhos para desktop e mobile', () => {
+  const html = read('index.html');
+  const js = read('js/app.js');
+  const css = read('css/style.css');
+
+  const headerEnd = html.indexOf('</header>');
+  const menuPosition = html.indexOf('id="quick-create-menu"');
+  assert.ok(headerEnd > 0 && menuPosition > headerEnd, 'menu Novo deve ficar fora do header filtrado');
+  assert.ok(html.includes('id="quick-create-btn"'), 'falta o gatilho desktop');
+  assert.ok(html.includes('id="quick-create-mobile-btn"'), 'falta o gatilho mobile');
+  assert.ok(html.includes('id="quick-create-veil"'), 'falta a camada de fechamento do menu');
+  assert.ok(js.includes("document.getElementById('quick-create-mobile-btn')"), 'JS deve registrar o gatilho mobile');
+  assert.ok(js.includes("menu.classList.toggle('open', open)"), 'JS deve controlar o portal diretamente');
+  assert.ok(css.includes('.quick-create-menu.open'), 'CSS deve exibir o portal pelo estado open');
+});
+
+test('navegação mobile mantém cinco ações e acesso a todas as sete áreas', () => {
+  const html = read('index.html');
+  const nav = html.match(/<nav class="bottom-nav"[\s\S]*?<\/nav>/)?.[0] || '';
+  const directActions = (nav.match(/class="bottom-nav-item/g) || []).length;
+  assert.strictEqual(directActions, 5, 'barra inferior deve manter cinco alvos legíveis');
+
+  for (const tab of ['dashboard', 'transactions', 'reports']) {
+    assert.ok(nav.includes(`data-tab="${tab}"`), `falta ${tab} na barra inferior`);
+  }
+  for (const tab of ['cards', 'budgets', 'goals', 'settings']) {
+    assert.ok(html.includes(`class="mobile-more-item" data-tab="${tab}"`), `falta ${tab} no menu Mais`);
+  }
+  assert.ok(html.includes('id="mobile-more-btn"'));
+  assert.ok(html.includes('id="mobile-more-menu"'));
+});
+
 test('configurações usam uma central de blocos que abre um módulo por vez', () => {
   const html = read('index.html');
   const js = read('js/app.js');

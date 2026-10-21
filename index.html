@@ -145,42 +145,6 @@
               <span>Novo</span>
               <i class="ri-arrow-down-s-line quick-create-chevron" aria-hidden="true"></i>
             </button>
-            <div id="quick-create-menu" class="quick-create-menu" role="menu" aria-label="Criar novo registro" aria-hidden="true">
-              <div class="quick-create-menu-head" role="presentation">
-                <span class="quick-create-title">Criar novo</span>
-                <small>O que você deseja registrar?</small>
-              </div>
-              <div class="quick-create-content" role="presentation">
-                <div class="quick-create-group quick-create-primary" role="presentation">
-                  <span class="quick-create-group-label">Movimentações</span>
-                  <div class="quick-create-items" role="presentation">
-                    <button class="quick-create-item quick-create-income open-tx-modal-btn" data-type="income" type="button" role="menuitem">
-                      <i class="ri-arrow-down-circle-line" aria-hidden="true"></i><span><strong>Receita</strong><small>Nova entrada</small></span>
-                    </button>
-                    <button class="quick-create-item quick-create-expense open-tx-modal-btn" data-type="expense" type="button" role="menuitem">
-                      <i class="ri-arrow-up-circle-line" aria-hidden="true"></i><span><strong>Despesa</strong><small>Nova saída</small></span>
-                    </button>
-                    <button class="quick-create-item quick-create-transfer open-transfer-modal-btn" type="button" role="menuitem">
-                      <i class="ri-swap-box-line" aria-hidden="true"></i><span><strong>Transferência</strong><small>Entre contas</small></span>
-                    </button>
-                  </div>
-                </div>
-                <div class="quick-create-group quick-create-secondary" role="presentation">
-                  <span class="quick-create-group-label">Organizar finanças</span>
-                  <div class="quick-create-items" role="presentation">
-                    <button class="quick-create-item" data-create-action="account" type="button" role="menuitem">
-                      <i class="ri-bank-line" aria-hidden="true"></i><span><strong>Conta</strong><small>Adicionar instituição</small></span>
-                    </button>
-                    <button class="quick-create-item" data-create-action="budget" type="button" role="menuitem">
-                      <i class="ri-compasses-2-line" aria-hidden="true"></i><span><strong>Orçamento</strong><small>Definir um limite</small></span>
-                    </button>
-                    <button class="quick-create-item" data-create-action="goal" type="button" role="menuitem">
-                      <i class="ri-flag-line" aria-hidden="true"></i><span><strong>Meta</strong><small>Criar um objetivo</small></span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </header>
@@ -956,27 +920,45 @@
       <i class="ri-exchange-dollar-line"></i>
       <span>Transações</span>
     </a>
-    <a href="#cards" class="bottom-nav-item" data-tab="cards">
-      <i class="ri-bank-card-line"></i>
-      <span>Cartões</span>
-    </a>
-    <a href="#budgets" class="bottom-nav-item" data-tab="budgets">
-      <i class="ri-compasses-2-line"></i>
-      <span>Orçamentos</span>
-    </a>
-    <a href="#goals" class="bottom-nav-item" data-tab="goals">
-      <i class="ri-flag-line"></i>
-      <span>Metas</span>
-    </a>
+    <button id="quick-create-mobile-btn" class="bottom-nav-item bottom-nav-create" type="button" aria-haspopup="menu" aria-controls="quick-create-menu" aria-expanded="false">
+      <span class="bottom-nav-create-icon"><i class="ri-add-line" aria-hidden="true"></i></span>
+      <span>Novo</span>
+    </button>
     <a href="#reports" class="bottom-nav-item" data-tab="reports">
       <i class="ri-pie-chart-2-line"></i>
       <span>Relatórios</span>
     </a>
-    <a href="#settings" class="bottom-nav-item" data-tab="settings">
-      <i class="ri-settings-4-line"></i>
-      <span>Ajustes</span>
-    </a>
+    <button id="mobile-more-btn" class="bottom-nav-item" type="button" aria-haspopup="dialog" aria-controls="mobile-more-menu" aria-expanded="false">
+      <i class="ri-menu-4-line"></i>
+      <span>Mais</span>
+    </button>
   </nav>
+
+  <div id="mobile-more-veil" class="mobile-sheet-veil" aria-hidden="true"></div>
+  <section id="mobile-more-menu" class="mobile-more-menu" role="dialog" aria-modal="true" aria-labelledby="mobile-more-title" aria-hidden="true">
+    <div class="mobile-sheet-handle" aria-hidden="true"></div>
+    <div class="mobile-more-head">
+      <div>
+        <strong id="mobile-more-title">Mais áreas</strong>
+        <span>Acesse planejamento, cartões e configurações</span>
+      </div>
+      <button id="mobile-more-close" class="modal-close-btn" type="button" aria-label="Fechar mais áreas"><i class="ri-close-line"></i></button>
+    </div>
+    <div class="mobile-more-grid">
+      <button class="mobile-more-item" data-tab="cards" type="button">
+        <i class="ri-bank-card-line"></i><span><strong>Cartões</strong><small>Faturas e limites</small></span>
+      </button>
+      <button class="mobile-more-item" data-tab="budgets" type="button">
+        <i class="ri-compasses-2-line"></i><span><strong>Orçamentos</strong><small>Limites de gastos</small></span>
+      </button>
+      <button class="mobile-more-item" data-tab="goals" type="button">
+        <i class="ri-flag-line"></i><span><strong>Metas</strong><small>Objetivos financeiros</small></span>
+      </button>
+      <button class="mobile-more-item" data-tab="settings" type="button">
+        <i class="ri-settings-4-line"></i><span><strong>Conta e ajustes</strong><small>Dados e preferências</small></span>
+      </button>
+    </div>
+  </section>
 
   <!-- Painel de Vencimentos -->
   <div id="due-panel-overlay" class="due-panel-overlay"></div>
@@ -1451,6 +1433,46 @@
   <!-- Portal do Seletor de Período (fora do header para o dropdown não ser "preso" pelo backdrop-filter) -->
   <div id="period-selector-veil" class="period-selector-veil"></div>
   <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
+
+  <!-- Portal do botão Novo: fora do header para funcionar corretamente no mobile -->
+  <div id="quick-create-veil" class="quick-create-veil" aria-hidden="true"></div>
+  <div id="quick-create-menu" class="quick-create-menu" role="menu" aria-label="Criar novo registro" aria-hidden="true">
+    <div class="mobile-sheet-handle quick-create-handle" aria-hidden="true"></div>
+    <div class="quick-create-menu-head" role="presentation">
+      <span class="quick-create-title">Criar novo</span>
+      <small>O que você deseja registrar?</small>
+    </div>
+    <div class="quick-create-content" role="presentation">
+      <div class="quick-create-group quick-create-primary" role="presentation">
+        <span class="quick-create-group-label">Movimentações</span>
+        <div class="quick-create-items" role="presentation">
+          <button class="quick-create-item quick-create-income open-tx-modal-btn" data-type="income" type="button" role="menuitem">
+            <i class="ri-arrow-down-circle-line" aria-hidden="true"></i><span><strong>Receita</strong><small>Nova entrada</small></span>
+          </button>
+          <button class="quick-create-item quick-create-expense open-tx-modal-btn" data-type="expense" type="button" role="menuitem">
+            <i class="ri-arrow-up-circle-line" aria-hidden="true"></i><span><strong>Despesa</strong><small>Nova saída</small></span>
+          </button>
+          <button class="quick-create-item quick-create-transfer open-transfer-modal-btn" type="button" role="menuitem">
+            <i class="ri-swap-box-line" aria-hidden="true"></i><span><strong>Transferência</strong><small>Entre contas</small></span>
+          </button>
+        </div>
+      </div>
+      <div class="quick-create-group quick-create-secondary" role="presentation">
+        <span class="quick-create-group-label">Organizar finanças</span>
+        <div class="quick-create-items" role="presentation">
+          <button class="quick-create-item" data-create-action="account" type="button" role="menuitem">
+            <i class="ri-bank-line" aria-hidden="true"></i><span><strong>Conta</strong><small>Adicionar instituição</small></span>
+          </button>
+          <button class="quick-create-item" data-create-action="budget" type="button" role="menuitem">
+            <i class="ri-compasses-2-line" aria-hidden="true"></i><span><strong>Orçamento</strong><small>Definir um limite</small></span>
+          </button>
+          <button class="quick-create-item" data-create-action="goal" type="button" role="menuitem">
+            <i class="ri-flag-line" aria-hidden="true"></i><span><strong>Meta</strong><small>Criar um objetivo</small></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts do FinanZen -->
   <script src="js/state.js?v=1.6.3"></script>
