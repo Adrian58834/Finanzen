@@ -2,6 +2,32 @@
 
 Este arquivo registra as mudanças relevantes de cada versão do FinanZen.
 
+## 1.8.1 — 21/10/2026
+
+### Seletor de período mobile
+
+- O seletor agora abre como um painel inferior amplo, com título, descrição e botão de fechar.
+- O período selecionado ganhou um resumo destacado e atualização automática.
+- Meses foram organizados por ano em uma grade de duas colunas, com anos completos agrupados separadamente.
+- O mês atual abre centralizado, facilitando a troca entre meses próximos.
+- Adicionados navegação por teclado, atributos de acessibilidade e restauração de foco ao fechar.
+- Incluído teste real de abertura, organização, rolagem, seleção e fechamento no celular.
+
+## 1.8.0 — 21/10/2026
+
+### Design sólido e mais organizado
+
+- Substituída a aparência com auroras, transparências e brilhos por superfícies sólidas em azul-marinho, azul, verde e vermelho.
+- Cartões, filtros, tabelas, menus, modais e navegação agora usam bordas e sombras discretas, com hierarquia visual mais clara.
+- Removidos efeitos 3D, inclinação dos cartões, reflexo nos botões e onda de clique para deixar a interface mais estável.
+- Cartões de crédito passaram a usar cores sólidas e a identidade visual da PWA foi alinhada à nova paleta azul.
+- Mantidos os temas claro e escuro, os estados financeiros e os espaçamentos responsivos no desktop e no celular.
+
+### Qualidade
+
+- Validada a interface nas larguras de 320, 390, 768 e 1440 px.
+- Confirmados os fluxos de navegação, menu Novo, atalhos e cadastro de despesa em navegador real.
+
 ## 1.7.0 — 21/10/2026
 
 ### Desktop e mobile

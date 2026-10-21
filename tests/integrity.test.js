@@ -120,6 +120,20 @@ test('botão Novo usa portal responsivo e possui gatilhos para desktop e mobile'
   assert.ok(css.includes('.quick-create-menu.open'), 'CSS deve exibir o portal pelo estado open');
 });
 
+test('seletor de período possui painel mobile estruturado e acessível', () => {
+  const html = read('index.html');
+  const js = read('js/app.js');
+  const css = read('css/style.css');
+
+  for (const id of ['period-selector-menu', 'period-menu-title', 'period-menu-close', 'period-current-label', 'period-menu-options']) {
+    assert.ok(html.includes(`id="${id}"`), `falta ${id}`);
+  }
+  assert.ok(html.includes('aria-labelledby="period-menu-title"'));
+  assert.ok(js.includes("group: `meses-${y}`"), 'meses devem ser agrupados por ano');
+  assert.ok(js.includes("setAttribute('aria-selected', String(isActive))"), 'seleção deve ser comunicada a leitores de tela');
+  assert.ok(css.includes('.period-option-section-months .period-option-grid'), 'falta a grade de meses');
+});
+
 test('navegação mobile mantém cinco ações e acesso a todas as sete áreas', () => {
   const html = read('index.html');
   const nav = html.match(/<nav class="bottom-nav"[\s\S]*?<\/nav>/)?.[0] || '';
@@ -175,4 +189,15 @@ test('proteção contra perda de dados possui histórico local e no Supabase', (
   assert.ok(sync.includes("Cópia da nuvem antes da sincronização"));
   assert.ok(schema.includes('create table if not exists public.finanzen_data_history'));
   assert.ok(schema.includes('trg_archive_finanzen_data'));
+});
+
+test('design sólido não inicializa efeitos 3D ou ondas de clique', () => {
+  const css = read('css/style.css');
+  const js = read('js/app.js');
+
+  assert.ok(css.includes('FINANZEN SOLID'), 'falta a camada visual sólida');
+  assert.ok(css.includes('--accent-gradient: #2f80ed'), 'cor principal deve ser sólida');
+  assert.ok(!js.includes('setupSpatialInteractions'), 'efeitos espaciais não devem ser inicializados');
+  assert.ok(!js.includes('interaction-ripple'), 'efeito de onda não deve ser criado no clique');
+  assert.ok(!js.includes('getCardGradient'), 'cartões de crédito não devem depender de gradientes');
 });

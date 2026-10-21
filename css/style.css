@@ -5,49 +5,49 @@
 
 :root {
   /* Cores Base - Dark Theme (Padrão) */
-  --bg-primary: #07111f;
-  --bg-secondary: #0d1b2f;
-  --bg-tertiary: #142843;
-  --bg-card: rgba(13, 27, 47, 0.9);
-  --bg-card-hover: rgba(20, 40, 67, 0.96);
-  --border-color: rgba(123, 198, 248, 0.15);
-  --border-focus: rgba(38, 135, 233, 0.62);
+  --bg-primary: #0a1220;
+  --bg-secondary: #111c2e;
+  --bg-tertiary: #18263b;
+  --bg-card: #111c2e;
+  --bg-card-hover: #16243a;
+  --border-color: #27364d;
+  --border-focus: #3b82f6;
 
   /* Tipografia */
-  --text-primary: #f5faff;
-  --text-secondary: #aec2d8;
-  --text-muted: #7690aa;
+  --text-primary: #f7f9fc;
+  --text-secondary: #b8c4d4;
+  --text-muted: #8291a6;
 
   /* Cores Temáticas e Semânticas */
-  --accent-primary: #2687e9;
-  --accent-primary-hover: #1b69c8;
-  --accent-secondary: #00aff0;
-  --accent-tertiary: #26b547;
-  --accent-glow: rgba(38, 135, 233, 0.24);
-  --accent-gradient: linear-gradient(135deg, #2687e9 0%, #1b69c8 52%, #00aff0 100%);
-  --grid-line: rgba(148, 163, 184, 0.055);
-  --surface-highlight: rgba(255, 255, 255, 0.05);
+  --accent-primary: #2f80ed;
+  --accent-primary-hover: #246bc5;
+  --accent-secondary: #56a3ff;
+  --accent-tertiary: #19a974;
+  --accent-glow: rgba(47, 128, 237, 0.16);
+  --accent-gradient: #2f80ed;
+  --grid-line: transparent;
+  --surface-highlight: transparent;
 
-  --income: #2dd4bf;
-  --income-bg: rgba(45, 212, 191, 0.12);
-  --income-border: rgba(45, 212, 191, 0.28);
+  --income: #32c48d;
+  --income-bg: #15392f;
+  --income-border: #25664f;
 
-  --expense: #fb7185;
-  --expense-bg: rgba(251, 113, 133, 0.12);
-  --expense-border: rgba(251, 113, 133, 0.28);
+  --expense: #ff7185;
+  --expense-bg: #3b202b;
+  --expense-border: #704052;
 
-  --warning: #fbbf24;
-  --warning-bg: rgba(251, 191, 36, 0.12);
-  --warning-border: rgba(251, 191, 36, 0.3);
+  --warning: #f2bd4b;
+  --warning-bg: #382f1d;
+  --warning-border: #68572b;
 
-  --info: #38bdf8;
-  --info-bg: rgba(56, 189, 248, 0.12);
+  --info: #58a8f5;
+  --info-bg: #173553;
 
   /* Sombras e Vidro */
-  --shadow-sm: 0 4px 14px rgba(1, 4, 14, 0.28);
-  --shadow-md: 0 18px 40px -18px rgba(0, 0, 0, 0.72), 0 10px 30px -24px rgba(124, 108, 255, 0.5);
-  --shadow-lg: 0 30px 70px -24px rgba(0, 0, 0, 0.82), 0 16px 44px -28px rgba(34, 211, 238, 0.35);
-  --glass-blur: blur(12px);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.28);
+  --glass-blur: none;
 
   /* Dimensões */
   --sidebar-width: 260px;
@@ -71,32 +71,41 @@
 
 /* Tema Claro (Light Mode) */
 body.light-theme {
-  --bg-primary: #f5f8fc;
+  --bg-primary: #f3f6fa;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #edf4fb;
+  --bg-tertiary: #eaf0f6;
   --bg-card: #ffffff;
-  --bg-card-hover: #ffffff;
-  --border-color: #dce7f2;
-  --border-focus: rgba(38, 135, 233, 0.5);
+  --bg-card-hover: #f8fafc;
+  --border-color: #d6e0eb;
+  --border-focus: #2f80ed;
 
-  --text-primary: #0b2444;
-  --text-secondary: #46617c;
-  --text-muted: #7890a8;
+  --text-primary: #132238;
+  --text-secondary: #4d6075;
+  --text-muted: #718096;
 
-  --accent-primary: #2687e9;
-  --accent-primary-hover: #1b69c8;
-  --accent-secondary: #00aff0;
-  --accent-tertiary: #26b547;
-  --accent-glow: rgba(38, 135, 233, 0.16);
-  --accent-gradient: linear-gradient(135deg, #2687e9 0%, #1b69c8 52%, #00aff0 100%);
-  --grid-line: rgba(15, 23, 42, 0.045);
-  --surface-highlight: rgba(255, 255, 255, 0.7);
+  --accent-primary: #246fc8;
+  --accent-primary-hover: #1d5da9;
+  --accent-secondary: #3b82f6;
+  --accent-tertiary: #13865f;
+  --accent-glow: rgba(36, 111, 200, 0.14);
+  --accent-gradient: #246fc8;
+  --grid-line: transparent;
+  --surface-highlight: transparent;
 
-  --income-bg: rgba(16, 185, 129, 0.08);
-  --expense-bg: rgba(244, 63, 94, 0.08);
-  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 16px 36px -6px rgba(15, 23, 42, 0.12);
+  --income: #087f5b;
+  --income-bg: #e2f5ed;
+  --income-border: #a8dcca;
+  --expense: #c63b52;
+  --expense-bg: #fae7eb;
+  --expense-border: #e8b6c0;
+  --warning: #9a6700;
+  --warning-bg: #fff4d6;
+  --warning-border: #e8cf8a;
+  --info: #246fc8;
+  --info-bg: #e3effb;
+  --shadow-sm: 0 1px 3px rgba(18, 35, 56, 0.08);
+  --shadow-md: 0 6px 18px rgba(18, 35, 56, 0.1);
+  --shadow-lg: 0 14px 36px rgba(18, 35, 56, 0.14);
 }
 
 /* Reset & Base */
@@ -5653,5 +5662,819 @@ body.theme-changing .app-container {
 
   .page-title-group h1 {
     font-size: 1rem;
+  }
+}
+
+/* ==========================================================================
+   FINANZEN SOLID — superfícies limpas, cores sólidas e foco no conteúdo
+   ========================================================================== */
+
+body {
+  background: var(--bg-primary);
+}
+
+body::before,
+body::after {
+  display: none;
+}
+
+.main-wrapper,
+.content-area,
+.tab-content {
+  transform-style: flat;
+}
+
+.content-area {
+  perspective: none;
+}
+
+.sidebar {
+  background: #0d1829;
+  border-right: 1px solid var(--border-color);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+body.light-theme .sidebar {
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.top-header {
+  background: #0a1220;
+  border-bottom: 1px solid var(--border-color);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+body.light-theme .top-header {
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.brand-icon {
+  background: var(--accent-primary);
+  border-radius: 10px;
+  box-shadow: none;
+  animation: none;
+  transform: none;
+}
+
+.brand-icon i {
+  filter: none;
+  transform: none;
+}
+
+.brand-title {
+  color: var(--text-primary);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.brand-badge {
+  color: #8fc2ff;
+  background: #173553;
+  box-shadow: none;
+}
+
+body.light-theme .brand-badge {
+  color: var(--accent-primary);
+  background: #e3effb;
+}
+
+.nav-item,
+.nav-item:hover,
+.nav-item.active {
+  transform: none;
+  box-shadow: none;
+}
+
+.nav-item::before,
+.nav-item::after {
+  display: none;
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.nav-item.active,
+body.light-theme .nav-item.active {
+  color: #ffffff;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.metric-card,
+.chart-card,
+.section-card,
+.budget-card,
+.goal-card,
+.score-card,
+.forecast-card,
+.comparison-card,
+.settings-card,
+.tab-header-card,
+.month-comparison-section,
+.account-balance-total,
+.filters-bar,
+.report-toolbar {
+  background: var(--bg-card);
+  background-image: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--shadow-sm);
+  transform: none;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  animation: none;
+}
+
+.metric-card:hover,
+.chart-card:hover,
+.section-card:hover,
+.budget-card:hover,
+.goal-card:hover,
+.score-card:hover,
+.forecast-card:hover,
+.comparison-card:hover,
+.settings-card:hover,
+.tab-header-card:hover {
+  background: var(--bg-card-hover);
+  border-color: #3a4c66;
+  box-shadow: var(--shadow-sm);
+  transform: none;
+}
+
+body.light-theme .metric-card:hover,
+body.light-theme .chart-card:hover,
+body.light-theme .section-card:hover,
+body.light-theme .budget-card:hover,
+body.light-theme .goal-card:hover,
+body.light-theme .score-card:hover,
+body.light-theme .forecast-card:hover,
+body.light-theme .comparison-card:hover,
+body.light-theme .settings-card:hover,
+body.light-theme .tab-header-card:hover {
+  border-color: #b9c7d8;
+}
+
+.metric-card::after,
+.open-finance-card::after,
+.score-card::before,
+.forecast-card::before {
+  display: none;
+}
+
+.metric-card::before {
+  top: 18px;
+  right: auto;
+  bottom: 18px;
+  left: 0;
+  width: 3px;
+  height: auto;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-primary);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.metric-card.income-card::before { background: var(--income); }
+.metric-card.expense-card::before { background: var(--expense); }
+.metric-card.savings-card::before { background: var(--info); }
+
+.metric-value {
+  text-shadow: none;
+}
+
+.metric-header,
+.chart-header,
+.section-header,
+.score-header,
+.settings-card-head,
+.metric-value,
+.goal-card-content,
+.credit-card-card > * {
+  transform: none;
+}
+
+.metric-icon-badge,
+.settings-card-icon,
+.goal-avatar,
+.account-balance-name > i {
+  filter: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.balance-badge,
+.settings-card-icon {
+  color: #8fc2ff;
+  background: #173553;
+}
+
+body.light-theme .balance-badge,
+body.light-theme .settings-card-icon {
+  color: var(--accent-primary);
+  background: #e3effb;
+}
+
+.account-settings-card,
+.quick-create-menu-head,
+.open-finance-state-ready {
+  background: var(--bg-tertiary);
+  background-image: none;
+}
+
+.btn,
+.action-btn,
+.period-selector-btn,
+.pagination-btn,
+.theme-toggle-btn,
+.theme-toggle-mobile-btn,
+.mobile-menu-btn,
+.due-bell-btn {
+  overflow: visible;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn::before,
+.period-selector-btn::before {
+  display: none;
+}
+
+.btn:hover,
+.btn:active,
+.action-btn:hover,
+.action-btn:active,
+.period-selector-btn:hover,
+.period-selector-btn:active,
+.pagination-btn:hover:not(:disabled),
+.pagination-btn:active:not(:disabled) {
+  filter: none;
+  transform: none;
+}
+
+.btn-primary,
+.btn-primary:hover {
+  color: #ffffff;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  box-shadow: none;
+}
+
+.btn-primary:hover {
+  background: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  box-shadow: none;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--text-muted);
+  box-shadow: none;
+}
+
+.btn-income,
+.btn-income:hover,
+.btn-expense,
+.btn-expense:hover,
+.btn-emerald,
+.btn-emerald:hover {
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.quick-create-btn {
+  box-shadow: none;
+}
+
+.quick-create-item,
+.quick-create-primary .quick-create-item,
+.quick-create-primary .quick-create-item:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.quick-create-item:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-focus);
+}
+
+.period-selector-btn,
+.form-control,
+.custom-select,
+.search-input-wrapper input,
+.theme-toggle-btn {
+  background: var(--bg-tertiary);
+  box-shadow: none;
+}
+
+.form-control:hover,
+.custom-select:hover,
+.search-input-wrapper input:hover {
+  border-color: var(--text-muted);
+}
+
+.form-control:focus,
+.custom-select:focus,
+.search-input-wrapper input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  transform: none;
+}
+
+.period-selector-menu,
+.quick-create-menu,
+.mobile-more-menu,
+.due-panel,
+.modal-dialog,
+.toast {
+  background: var(--bg-secondary);
+  background-image: none;
+  border-color: var(--border-color);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-backdrop {
+  background: rgba(3, 8, 18, 0.72);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  perspective: none;
+}
+
+.modal-backdrop.active .modal-dialog,
+.tab-content.tab-entering,
+body.theme-changing .app-container {
+  animation: none;
+}
+
+.custom-table th {
+  background: var(--bg-tertiary);
+  background-image: none;
+  letter-spacing: 0.04em;
+}
+
+.custom-table tbody tr,
+.custom-table tbody tr:hover {
+  filter: none;
+  transform: none;
+}
+
+.custom-table tr:hover td {
+  background: var(--bg-tertiary);
+  background-image: none;
+}
+
+.status-pill,
+.badge-type,
+.trend-badge,
+.fixed-badge,
+.tx-category-badge,
+.type-toggle-group,
+.type-toggle-btn.active.income,
+.type-toggle-btn.active.expense {
+  box-shadow: none;
+}
+
+.budget-progress-bar,
+.forecast-progress-bar,
+.score-meter-fill,
+.goal-circular-bar {
+  filter: none;
+  box-shadow: none;
+}
+
+.credit-card-card,
+.credit-card-card:hover,
+.spatial-ui .credit-card-card.is-tilting {
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: var(--shadow-md) !important;
+  transform: none;
+  transform-style: flat;
+  transition: border-color var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb:hover {
+  background: #40516a;
+  background-image: none;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+body.light-theme ::-webkit-scrollbar-thumb,
+body.light-theme ::-webkit-scrollbar-thumb:hover {
+  background: #b8c5d3;
+  background-clip: padding-box;
+}
+
+.bottom-nav {
+  background: #0d1829;
+  border-top-color: var(--border-color);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.18);
+}
+
+body.light-theme .bottom-nav {
+  background: #ffffff;
+}
+
+.bottom-nav-create,
+.bottom-nav-create:hover,
+.bottom-nav-create:active {
+  transform: none;
+}
+
+.bottom-nav-create-icon,
+.bottom-nav-create:hover .bottom-nav-create-icon,
+.bottom-nav-create:active .bottom-nav-create-icon {
+  background: var(--accent-primary);
+  background-image: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.24);
+  filter: none;
+  transform: translateY(-13px);
+}
+
+@media (max-width: 640px) {
+  .metric-card,
+  .chart-card,
+  .section-card,
+  .budget-card,
+  .goal-card,
+  .score-card,
+  .forecast-card,
+  .comparison-card,
+  .settings-card,
+  .tab-header-card,
+  .month-comparison-section,
+  .filters-bar,
+  .report-toolbar {
+    border-radius: 12px;
+    box-shadow: none;
+  }
+
+  .modal-backdrop.active .modal-dialog {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+   SELETOR DE PERÍODO — painel organizado para desktop e mobile
+   ========================================================================== */
+
+body.period-menu-open {
+  overflow: hidden;
+}
+
+.period-selector-menu {
+  width: min(380px, calc(100vw - 24px));
+  min-width: 0;
+  max-height: min(560px, calc(100dvh - 96px));
+  padding: 0;
+  overflow: hidden;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+}
+
+body.period-menu-open .period-selector-menu {
+  display: flex;
+}
+
+.period-sheet-handle {
+  display: none;
+}
+
+.period-selector-menu::before {
+  display: none;
+}
+
+.period-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.period-menu-heading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.period-menu-heading-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  color: #8fc2ff;
+  background: #173553;
+  font-size: 1.1rem;
+}
+
+body.light-theme .period-menu-heading-icon {
+  color: var(--accent-primary);
+  background: #e3effb;
+}
+
+.period-menu-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  line-height: 1.25;
+}
+
+.period-menu-heading p {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.period-menu-close {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+}
+
+.period-menu-close:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.period-current-card {
+  margin: 12px 16px 4px;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  background: var(--bg-tertiary);
+}
+
+.period-current-card span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+}
+
+.period-current-card strong {
+  color: var(--accent-secondary);
+  font-size: 0.77rem;
+  text-align: right;
+}
+
+body.light-theme .period-current-card strong {
+  color: var(--accent-primary);
+}
+
+.period-menu-options {
+  min-height: 0;
+  padding: 8px 10px 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.period-option-section + .period-option-section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.period-menu-group {
+  padding: 8px 6px 7px;
+  color: var(--text-muted);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.period-option-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.period-option-section-anos .period-option-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.period-option-section-anos .period-menu-item {
+  justify-content: center;
+}
+
+.period-option-section-anos .period-item-icon {
+  display: none;
+}
+
+.period-option-section-anos .period-menu-item .check {
+  margin-left: 0;
+}
+
+.period-option-section-months .period-option-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.period-menu-item {
+  position: relative;
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 9px;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.period-menu-item:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: var(--bg-card-hover);
+}
+
+.period-item-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  color: var(--accent-secondary);
+  background: var(--bg-secondary);
+  font-size: 0.9rem;
+}
+
+.period-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-menu-item .check {
+  display: none;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.period-menu-item.active,
+.period-menu-item.active:hover {
+  color: #ffffff;
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+}
+
+.period-menu-item.active .period-item-icon {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.period-menu-item.active .check {
+  display: inline-block;
+}
+
+@media (max-width: 767px) {
+  .period-selector-veil,
+  body.period-menu-open .period-selector-veil {
+    z-index: 1098;
+    background: rgba(3, 8, 18, 0.68);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .period-selector-menu {
+    position: fixed;
+    z-index: 1099;
+    inset: auto 0 0;
+    width: 100%;
+    max-height: min(78dvh, 680px);
+    padding-bottom: env(safe-area-inset-bottom);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 34px rgba(0, 0, 0, 0.28);
+  }
+
+  body.period-menu-open .period-selector-menu {
+    animation: periodSheetSolidIn 180ms ease-out;
+  }
+
+  @keyframes periodSheetSolidIn {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .period-sheet-handle {
+    width: 38px;
+    height: 4px;
+    display: block;
+    flex: 0 0 auto;
+    margin: 8px auto 2px;
+    border-radius: 999px;
+    background: var(--border-color);
+  }
+
+  .period-menu-head {
+    padding: 10px 16px 13px;
+  }
+
+  .period-menu-heading-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .period-menu-heading h2 {
+    font-size: 1rem;
+  }
+
+  .period-menu-heading p {
+    font-size: 0.72rem;
+  }
+
+  .period-menu-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .period-current-card {
+    min-height: 52px;
+    margin: 12px 16px 3px;
+  }
+
+  .period-menu-options {
+    padding: 8px 12px 16px;
+  }
+
+  .period-option-section-anos .period-option-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .period-option-section-months .period-option-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .period-menu-item {
+    min-height: 48px;
+    padding: 8px 10px;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (max-width: 350px) {
+  .period-menu-heading p {
+    display: none;
+  }
+
+  .period-menu-head,
+  .period-current-card {
+    margin-inline: 12px;
+  }
+
+  .period-menu-head {
+    padding-inline: 0;
+  }
+
+  .period-menu-options {
+    padding-inline: 10px;
   }
 }

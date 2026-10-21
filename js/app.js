@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', () => {
       this.setupPwaInstall();
       this.setupCustomization();
       this.setupMobileMenu();
-      this.setupSpatialInteractions();
       this.renderAll();
       this.renderSyncPanel();
     },
@@ -94,8 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const root = document.getElementById('period-selector');
       const btn = document.getElementById('period-selector-btn');
       const menu = document.getElementById('period-selector-menu');
+      const optionsRoot = document.getElementById('period-menu-options');
+      const closeBtn = document.getElementById('period-menu-close');
       const veil = document.getElementById('period-selector-veil');
-      if (!selector || !root || !btn) return;
+      if (!selector || !root || !btn || !menu || !optionsRoot || !veil) return;
 
       const date = new Date();
       const currentYear = date.getFullYear();
@@ -119,7 +120,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = new Date(currentYear, currentMonth - 1 + offset, 1);
         const y = d.getFullYear();
         const m = d.getMonth() + 1;
-        items.push({ value: `${y}-${String(m).padStart(2, '0')}`, label: `${monthNames[m - 1]} de ${y}`, group: 'meses' });
+        items.push({
+          value: `${y}-${String(m).padStart(2, '0')}`,
+          label: monthNames[m - 1],
+          fullLabel: `${monthNames[m - 1]} de ${y}`,
+          group: `meses-${y}`,
+          groupLabel: `Meses de ${y}`,
+          groupType: 'months'
+        });
       }
 
       // Preenche o select nativo (mantido internamente para compatibilidade)
@@ -127,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
       items.forEach(it => {
         const opt = document.createElement('option');
         opt.value = it.value;
-        opt.textContent = it.label;
+        opt.textContent = it.fullLabel || it.label;
         selector.appendChild(opt);
       });
 
@@ -139,23 +147,42 @@ document.addEventListener('DOMContentLoaded', () => {
       selector.value = (defaultVal && defaultVal.value) || (items[0] && items[0].value);
       this.selectedPeriod = selector.value;
 
-      // Monta o dropdown
+      // Monta grupos claros e fáceis de tocar no desktop e no celular.
+      optionsRoot.innerHTML = '';
       let lastGroup = '';
+      let groupGrid = null;
       items.forEach(it => {
         if (it.group !== lastGroup) {
+          const section = document.createElement('section');
+          section.className = `period-option-section period-option-section-${it.groupType || it.group}`;
+
           const groupEl = document.createElement('div');
           groupEl.className = 'period-menu-group';
-          groupEl.textContent = it.group === 'geral' ? 'Geral' : (it.group === 'anos' ? 'Anos' : 'Meses');
-          menu.appendChild(groupEl);
+          groupEl.textContent = it.groupLabel || (it.group === 'geral' ? 'Visão geral' : 'Anos completos');
+          section.appendChild(groupEl);
+
+          groupGrid = document.createElement('div');
+          groupGrid.className = 'period-option-grid';
+          section.appendChild(groupGrid);
+          optionsRoot.appendChild(section);
           lastGroup = it.group;
         }
+
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'period-menu-item';
         item.dataset.value = it.value;
         item.setAttribute('role', 'option');
-        item.innerHTML = `<span>${it.label}</span><i class="ri-check-line check" aria-hidden="true"></i>`;
-        menu.appendChild(item);
+        item.setAttribute('aria-selected', 'false');
+        const icon = it.group === 'geral'
+          ? 'ri-infinity-line'
+          : (it.group === 'anos' ? 'ri-calendar-2-line' : 'ri-calendar-event-line');
+        item.innerHTML = `
+          <span class="period-item-icon"><i class="${icon}" aria-hidden="true"></i></span>
+          <span class="period-item-label">${it.label}</span>
+          <i class="ri-check-line check" aria-hidden="true"></i>
+        `;
+        groupGrid.appendChild(item);
       });
 
       // Abre/fecha o dropdown
@@ -168,10 +195,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      veil.addEventListener('click', () => this.closePeriodMenu());
+      veil.addEventListener('click', () => this.closePeriodMenu(true));
+      closeBtn?.addEventListener('click', () => this.closePeriodMenu(true));
 
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') this.closePeriodMenu();
+        if (e.key === 'Escape' && document.body.classList.contains('period-menu-open')) {
+          this.closePeriodMenu(true);
+        }
       });
 
       // Seleção pelo menu
@@ -184,6 +214,20 @@ document.addEventListener('DOMContentLoaded', () => {
           selector.dispatchEvent(new Event('change'));
         }
         this.closePeriodMenu();
+      });
+
+      menu.addEventListener('keydown', (e) => {
+        if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+        const menuItems = [...menu.querySelectorAll('.period-menu-item')];
+        if (!menuItems.length) return;
+        e.preventDefault();
+        const current = Math.max(0, menuItems.indexOf(document.activeElement));
+        let next = current;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (current + 1) % menuItems.length;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (current - 1 + menuItems.length) % menuItems.length;
+        if (e.key === 'Home') next = 0;
+        if (e.key === 'End') next = menuItems.length - 1;
+        menuItems[next].focus();
       });
 
       // Mudança de período (menu ou select nativo)
@@ -208,6 +252,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.classList.add('period-menu-open');
       root.classList.add('open');
       btn.setAttribute('aria-expanded', 'true');
+      document.getElementById('period-selector-menu')?.setAttribute('aria-hidden', 'false');
+      document.getElementById('period-selector-veil')?.setAttribute('aria-hidden', 'false');
 
       // Posiciona o portal sob o botão no desktop (o menu não é mais filho do .period-selector)
       if (window.innerWidth > 767) {
@@ -229,6 +275,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       this.positionPeriodMenu();
+
+      requestAnimationFrame(() => {
+        const activeItem = document.querySelector('#period-selector-menu .period-menu-item.active');
+        activeItem?.scrollIntoView({ block: 'center' });
+        if (window.innerWidth > 767) activeItem?.focus({ preventScroll: true });
+        else document.getElementById('period-menu-close')?.focus({ preventScroll: true });
+      });
     },
 
     positionPeriodMenu() {
@@ -248,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     },
 
-    closePeriodMenu() {
+    closePeriodMenu(restoreFocus = false) {
       const root = document.getElementById('period-selector');
       if (root) root.classList.remove('open');
       document.body.classList.remove('period-menu-open');
@@ -256,20 +309,37 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btn) btn.setAttribute('aria-expanded', 'false');
       const menu = document.getElementById('period-selector-menu');
       if (menu) {
+        menu.setAttribute('aria-hidden', 'true');
         menu.style.left = '';
         menu.style.top = '';
         menu.style.position = '';
       }
       const veil = document.getElementById('period-selector-veil');
-      if (veil) veil.style.display = '';
+      if (veil) {
+        veil.setAttribute('aria-hidden', 'true');
+        veil.style.display = '';
+      }
+      if (restoreFocus) btn?.focus();
     },
 
     updatePeriodSelectorUi() {
       const labelEl = document.getElementById('period-selector-label');
+      const currentLabelEl = document.getElementById('period-current-label');
       const menu = document.getElementById('period-selector-menu');
       if (labelEl) labelEl.textContent = this.shortPeriodLabel(this.selectedPeriod);
+      if (currentLabelEl) {
+        currentLabelEl.textContent = this.selectedPeriod === 'all'
+          ? 'Todo o histórico'
+          : (/^\d{4}$/.test(String(this.selectedPeriod))
+            ? `Ano completo de ${this.selectedPeriod}`
+            : this.periodLabel(this.selectedPeriod));
+      }
       const items = menu ? menu.querySelectorAll('.period-menu-item') : [];
-      items.forEach(b => b.classList.toggle('active', b.dataset.value === String(this.selectedPeriod)));
+      items.forEach(b => {
+        const isActive = b.dataset.value === String(this.selectedPeriod);
+        b.classList.toggle('active', isActive);
+        b.setAttribute('aria-selected', String(isActive));
+      });
     },
 
     shortPeriodLabel(value) {
@@ -655,85 +725,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       context.textContent = `Entradas, saídas e pontos de atenção em ${this.periodLabel(this.selectedPeriod)}.`;
-    },
-
-    // --- Microinterações e profundidade 3D ---
-    setupSpatialInteractions() {
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-      const canTilt = window.matchMedia('(hover: hover) and (pointer: fine)').matches
-        && !reducedMotion.matches;
-      // O efeito espacial fica restrito ao cartão físico, onde a profundidade
-      // ajuda a metáfora. Cards operacionais permanecem estáveis para leitura.
-      const tiltSelector = '.credit-card-card';
-
-      if (canTilt) {
-        document.body.classList.add('spatial-ui');
-        let activeCard = null;
-        let activeRect = null;
-        let pointerX = 0;
-        let pointerY = 0;
-        let tiltFrame = 0;
-
-        const resetCard = (card) => {
-          if (!card) return;
-          card.classList.remove('is-tilting');
-          card.style.removeProperty('--tilt-x');
-          card.style.removeProperty('--tilt-y');
-          card.style.removeProperty('--pointer-x');
-          card.style.removeProperty('--pointer-y');
-        };
-
-        const paintTilt = () => {
-          tiltFrame = 0;
-          if (!activeCard || !activeRect || !activeCard.isConnected) return;
-          const x = Math.min(1, Math.max(0, (pointerX - activeRect.left) / activeRect.width));
-          const y = Math.min(1, Math.max(0, (pointerY - activeRect.top) / activeRect.height));
-          activeCard.style.setProperty('--tilt-x', `${((0.5 - y) * 5).toFixed(2)}deg`);
-          activeCard.style.setProperty('--tilt-y', `${((x - 0.5) * 7).toFixed(2)}deg`);
-          activeCard.style.setProperty('--pointer-x', `${(x * 100).toFixed(1)}%`);
-          activeCard.style.setProperty('--pointer-y', `${(y * 100).toFixed(1)}%`);
-          activeCard.classList.add('is-tilting');
-        };
-
-        document.addEventListener('pointermove', (event) => {
-          const card = event.target.closest(tiltSelector);
-          if (!card) return;
-          if (card !== activeCard) {
-            resetCard(activeCard);
-            activeCard = card;
-            activeRect = card.getBoundingClientRect();
-            if (!activeRect.width || !activeRect.height) return;
-          }
-          pointerX = event.clientX;
-          pointerY = event.clientY;
-          if (!tiltFrame) tiltFrame = requestAnimationFrame(paintTilt);
-        }, { passive: true });
-
-        document.addEventListener('pointerout', (event) => {
-          const card = event.target.closest(tiltSelector);
-          if (!card || (event.relatedTarget && card.contains(event.relatedTarget))) return;
-          resetCard(card);
-          if (card === activeCard) {
-            activeCard = null;
-            activeRect = null;
-          }
-        }, { passive: true });
-      }
-
-      document.addEventListener('click', (event) => {
-        if (reducedMotion.matches) return;
-        const control = event.target.closest('.btn, .action-btn, .nav-item, .period-selector-btn, .pagination-btn');
-        if (!control || control.disabled) return;
-        const rect = control.getBoundingClientRect();
-        const ripple = document.createElement('span');
-        ripple.className = 'interaction-ripple';
-        ripple.style.left = `${event.clientX ? event.clientX - rect.left : rect.width / 2}px`;
-        ripple.style.top = `${event.clientY ? event.clientY - rect.top : rect.height / 2}px`;
-        control.appendChild(ripple);
-        const removeRipple = () => ripple.remove();
-        ripple.addEventListener('animationend', removeRipple, { once: true });
-        setTimeout(removeRipple, 750);
-      });
     },
 
     // --- Formatação Monetária ---
@@ -3585,7 +3576,7 @@ populateTxCategories(type, selectedCatId = null) {
 
         return `
           <div class="credit-card-card" style="
-            background: ${this.getCardGradient(style)};
+            background: ${this.getCardColor(style)};
             border-radius: 18px;
             padding: 22px;
             color: #fff;
@@ -3651,13 +3642,13 @@ populateTxCategories(type, selectedCatId = null) {
       this.renderInvoiceDetails();
     },
 
-    getCardGradient(style) {
+    getCardColor(style) {
       switch (style) {
-        case 'purple': return 'linear-gradient(135deg, #7c6cff 0%, #22d3ee 100%)';
-        case 'orange': return 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)';
-        case 'black': return 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)';
-        case 'emerald': return 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-        case 'blue': default: return 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)';
+        case 'purple': return '#6256d9';
+        case 'orange': return '#d85d17';
+        case 'black': return '#1e293b';
+        case 'emerald': return '#078260';
+        case 'blue': default: return '#146eb4';
       }
     },
 

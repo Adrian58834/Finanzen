@@ -15,11 +15,11 @@
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
   <!-- Estilos da Aplicação -->
-  <link rel="stylesheet" href="css/style.css?v=1.7.0">
+  <link rel="stylesheet" href="css/style.css?v=1.8.1">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#7c6cff">
+  <meta name="theme-color" content="#2f80ed">
   <meta name="color-scheme" content="dark light">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1431,8 +1431,27 @@
   </div>
 
   <!-- Portal do Seletor de Período (fora do header para o dropdown não ser "preso" pelo backdrop-filter) -->
-  <div id="period-selector-veil" class="period-selector-veil"></div>
-  <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
+  <div id="period-selector-veil" class="period-selector-veil" aria-hidden="true"></div>
+  <section id="period-selector-menu" class="period-selector-menu" role="dialog" aria-modal="true" aria-labelledby="period-menu-title" aria-hidden="true">
+    <div class="period-sheet-handle" aria-hidden="true"></div>
+    <header class="period-menu-head">
+      <div class="period-menu-heading">
+        <span class="period-menu-heading-icon"><i class="ri-calendar-line" aria-hidden="true"></i></span>
+        <div>
+          <h2 id="period-menu-title">Escolher período</h2>
+          <p>Defina quais dados deseja visualizar.</p>
+        </div>
+      </div>
+      <button id="period-menu-close" class="period-menu-close" type="button" aria-label="Fechar seleção de período">
+        <i class="ri-close-line" aria-hidden="true"></i>
+      </button>
+    </header>
+    <div class="period-current-card" aria-live="polite">
+      <span>Período selecionado</span>
+      <strong id="period-current-label">Todos os períodos</strong>
+    </div>
+    <div id="period-menu-options" class="period-menu-options" role="listbox" aria-label="Períodos disponíveis"></div>
+  </section>
 
   <!-- Portal do botão Novo: fora do header para funcionar corretamente no mobile -->
   <div id="quick-create-veil" class="quick-create-veil" aria-hidden="true"></div>
@@ -1475,13 +1494,13 @@
   </div>
 
   <!-- Scripts do FinanZen -->
-  <script src="js/state.js?v=1.7.0"></script>
-  <script src="js/charts.js?v=1.7.0"></script>
-  <script src="js/app.js?v=1.7.0"></script>
-  <script src="js/sync-config.js?v=1.7.0"></script>
+  <script src="js/state.js?v=1.8.1"></script>
+  <script src="js/charts.js?v=1.8.1"></script>
+  <script src="js/app.js?v=1.8.1"></script>
+  <script src="js/sync-config.js?v=1.8.1"></script>
   <script src="js/vendor/supabase.min.js"></script>
-  <script src="js/sync.js?v=1.7.0"></script>
-  <script src="js/open-finance.js?v=1.7.0"></script>
+  <script src="js/sync.js?v=1.8.1"></script>
+  <script src="js/open-finance.js?v=1.8.1"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

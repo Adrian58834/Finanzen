@@ -347,6 +347,51 @@ test('fluxo Novo funciona no mobile', async () => {
   assert.deepEqual(runtimeErrors, []);
 });
 
+test('seletor de período mobile abre organizado e aplica a escolha', async () => {
+  await openViewport({ width: 390, height: 844, mobile: true });
+  await tap('#period-selector-btn');
+
+  const opened = await cdp.evaluate(`(() => {
+    const menu = document.getElementById('period-selector-menu');
+    const rect = menu.getBoundingClientRect();
+    const monthsGrid = menu.querySelector('.period-option-section-months .period-option-grid');
+    return {
+      open: document.body.classList.contains('period-menu-open'),
+      hidden: menu.getAttribute('aria-hidden'),
+      visible: getComputedStyle(menu).display !== 'none',
+      withinViewport: rect.left >= -1 && rect.right <= innerWidth + 1 && rect.top >= -1 && rect.bottom <= innerHeight + 1,
+      groupCount: menu.querySelectorAll('.period-option-section').length,
+      activeCount: menu.querySelectorAll('.period-menu-item.active').length,
+      monthColumns: getComputedStyle(monthsGrid).gridTemplateColumns.split(' ').length
+    };
+  })()`);
+  assert.equal(opened.open, true);
+  assert.equal(opened.hidden, 'false');
+  assert.equal(opened.visible, true);
+  assert.equal(opened.withinViewport, true);
+  assert.ok(opened.groupCount >= 4, 'períodos devem estar separados por grupos');
+  assert.equal(opened.activeCount, 1, 'somente o período atual deve estar destacado');
+  assert.equal(opened.monthColumns, 2, 'meses devem usar duas colunas no celular');
+
+  await cdp.evaluate(`document.querySelector('.period-menu-item[data-value="all"]').scrollIntoView({ block: 'center' })`);
+  await delay(180);
+  await tap('.period-menu-item[data-value="all"]');
+  const selected = await cdp.evaluate(`({
+    value: document.getElementById('global-period-select').value,
+    appValue: window.app?.selectedPeriod,
+    label: document.getElementById('period-selector-label').textContent,
+    closed: !document.body.classList.contains('period-menu-open')
+  })`);
+  assert.equal(selected.value, 'all');
+  assert.equal(selected.label, 'Todos os períodos');
+  assert.equal(selected.closed, true);
+
+  await tap('#period-selector-btn');
+  await tap('#period-menu-close');
+  assert.equal(await cdp.evaluate(`document.getElementById('period-selector-menu').getAttribute('aria-hidden')`), 'true');
+  assert.deepEqual(runtimeErrors, []);
+});
+
 test('navegacao mobile abre todas as areas principais', async () => {
   await openViewport({ width: 390, height: 844, mobile: true });
   for (const tab of ['dashboard', 'transactions', 'reports']) {
@@ -451,6 +496,48 @@ test('layout nao estoura em larguras critica de celular, tablet e desktop', asyn
   }
 });
 
+test('design sólido permanece legível nos temas escuro e claro', async () => {
+  await openViewport({ width: 390, height: 844, mobile: true });
+
+  const darkTheme = await cdp.evaluate(`(() => {
+    const card = document.querySelector('.metric-card');
+    const header = document.querySelector('.top-header');
+    const cardStyle = getComputedStyle(card);
+    const headerStyle = getComputedStyle(header);
+    return {
+      light: document.body.classList.contains('light-theme'),
+      bodyImage: getComputedStyle(document.body).backgroundImage,
+      cardImage: cardStyle.backgroundImage,
+      cardBackdrop: cardStyle.backdropFilter || cardStyle.webkitBackdropFilter,
+      cardTransform: cardStyle.transform,
+      headerBackdrop: headerStyle.backdropFilter || headerStyle.webkitBackdropFilter
+    };
+  })()`);
+  assert.equal(darkTheme.light, false);
+  assert.equal(darkTheme.bodyImage, 'none');
+  assert.equal(darkTheme.cardImage, 'none');
+  assert.equal(darkTheme.cardBackdrop, 'none');
+  assert.equal(darkTheme.cardTransform, 'none');
+  assert.equal(darkTheme.headerBackdrop, 'none');
+
+  await tap('#theme-toggle-mobile-btn');
+  const lightTheme = await cdp.evaluate(`(() => {
+    const cardStyle = getComputedStyle(document.querySelector('.metric-card'));
+    return {
+      light: document.body.classList.contains('light-theme'),
+      cardBackground: cardStyle.backgroundColor,
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    };
+  })()`);
+  assert.equal(lightTheme.light, true);
+  assert.equal(lightTheme.cardBackground, 'rgb(255, 255, 255)');
+  assert.equal(lightTheme.overflow, false);
+
+  await tap('#theme-toggle-mobile-btn');
+  assert.equal(await cdp.evaluate(`document.body.classList.contains('light-theme')`), false);
+  assert.deepEqual(runtimeErrors, []);
+});
+
 test('gera capturas de QA quando solicitado', { skip: !process.env.FINANZEN_SCREENSHOT_DIR }, async () => {
   const directory = process.env.FINANZEN_SCREENSHOT_DIR;
   fs.mkdirSync(directory, { recursive: true });
@@ -458,6 +545,10 @@ test('gera capturas de QA quando solicitado', { skip: !process.env.FINANZEN_SCRE
   await openViewport({ width: 390, height: 844, mobile: true });
   let capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
   fs.writeFileSync(path.join(directory, 'finanzen-mobile-cdp.png'), Buffer.from(capture.data, 'base64'));
+
+  await tap('#period-selector-btn');
+  capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+  fs.writeFileSync(path.join(directory, 'finanzen-mobile-period-cdp.png'), Buffer.from(capture.data, 'base64'));
 
   await openViewport({ width: 1440, height: 900, mobile: false });
   capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
