@@ -34,6 +34,20 @@ document.addEventListener('DOMContentLoaded', () => {
       this.setupMobileMenu();
       this.renderAll();
       this.renderSyncPanel();
+      if (window.financialState._loadError) this.showToast(window.financialState._loadError, 'error');
+    },
+
+    onAccountChanged() {
+      document.querySelectorAll('.modal-backdrop.active').forEach(modal => this.closeModal(modal.id));
+      this.closeDuePanel();
+      const dueBody = document.getElementById('due-panel-body');
+      if (dueBody) dueBody.textContent = '';
+      document.querySelectorAll('form').forEach(form => form.reset());
+      ['editingTxId', 'editingGoalId', 'editingAccountId', 'editingTransferId', 'editingRecurringId'].forEach(key => { this[key] = null; });
+      this.txPage = 1;
+      document.body.classList.toggle('light-theme', window.financialState.settings.theme === 'light');
+      this.updateThemeButtonUI(window.financialState.settings.theme);
+      this.renderAll();
     },
 
     processRecurringOnLoad() {
@@ -1206,7 +1220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <i class="ri-user-line"></i>
             <div>
               <strong>${statusLabel}</strong>
-              <span>Entre para sincronizar seus dados e gerenciar sua conta com segurança.</span>
+              <span>Você está no espaço local deste navegador. Cada conta tem seus próprios dados. Para levar dados locais a uma conta, exporte um backup, entre nela e importe o arquivo.</span>
             </div>
           </div>
           <form id="sync-auth-form" class="sync-auth-form" onsubmit="return false;">
@@ -1333,7 +1347,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (button.id === 'sync-signout-btn') {
-          await sync.signOut();
+          const result = await sync.signOut();
+          if (result && result.error) { this.showToast(result.error, 'error'); return; }
           this.showToast('Desconectado.', 'info');
           this.renderSyncPanel();
         }
@@ -1829,7 +1844,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (budgets.length === 0) {
         container.innerHTML = `
-          <div class="empty-state" style="grid-column: 1 / -1;">
+          <div class="empty-state empty-state-grid">
             <i class="ri-compasses-2-line empty-state-icon"></i>
             <p class="empty-state-title">Nenhum orçamento configurado</p>
             <p class="empty-state-desc">Defina tetos de gastos para suas principais categorias para não estourar seu salário.</p>
@@ -1847,14 +1862,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const actualPercent = Math.round((spent / limit) * 100);
 
         let progressClass = '';
-        let statusBadge = `<span style="color: var(--income); font-weight: 700;">${actualPercent}%</span>`;
+        let statusBadge = `<span class="budget-status budget-status-ok">${actualPercent}%</span>`;
 
         if (actualPercent >= 100) {
           progressClass = 'danger';
-          statusBadge = `<span style="color: var(--expense); font-weight: 700;">Estourado (${actualPercent}%)</span>`;
+          statusBadge = `<span class="budget-status budget-status-danger">Estourado (${actualPercent}%)</span>`;
         } else if (actualPercent >= 75) {
           progressClass = 'warning';
-          statusBadge = `<span style="color: var(--warning); font-weight: 700;">Atenção (${actualPercent}%)</span>`;
+          statusBadge = `<span class="budget-status budget-status-warning">Atenção (${actualPercent}%)</span>`;
         }
 
         const remaining = Math.max(0, limit - spent);
@@ -1867,16 +1882,18 @@ document.addEventListener('DOMContentLoaded', () => {
                   <i class="${cat.icon}"></i>
                 </div>
                 <div>
-                  <h4 style="font-size: 1rem; font-weight: 700;">${this.escapeHtml(cat.name)}</h4>
-                  <p style="font-size: 0.8rem; color: var(--text-secondary);">Limite: ${this.formatCurrency(limit)}</p>
+                  <h4 class="budget-category-title">${this.escapeHtml(cat.name)}</h4>
+                  <p class="budget-category-limit">Limite: ${this.formatCurrency(limit)}</p>
                 </div>
               </div>
-              <button class="action-btn edit-budget-btn" data-cat="${b.categoryId}" title="Editar Orçamento">
-                <i class="ri-edit-line"></i>
-              </button>
-              <button class="action-btn delete-budget-btn" data-cat="${b.categoryId}" title="Remover Orçamento">
-                <i class="ri-delete-bin-line"></i>
-              </button>
+              <div class="budget-card-actions">
+                <button class="action-btn edit-budget-btn" data-cat="${b.categoryId}" title="Editar Orçamento">
+                  <i class="ri-edit-line"></i>
+                </button>
+                <button class="action-btn delete-budget-btn" data-cat="${b.categoryId}" title="Remover Orçamento">
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+              </div>
             </div>
 
             <div class="budget-progress-track">
@@ -1887,7 +1904,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <span>Gasto: <strong>${this.formatCurrency(spent)}</strong></span>
               <span>${statusBadge}</span>
             </div>
-            <div class="budget-info-row" style="color: var(--text-muted); font-size: 0.78rem;">
+            <div class="budget-info-row budget-info-muted">
               <span>Restante: ${this.formatCurrency(remaining)}</span>
             </div>
           </div>
@@ -1921,7 +1938,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (goals.length === 0) {
         container.innerHTML = `
-          <div class="empty-state" style="grid-column: 1 / -1;">
+          <div class="empty-state empty-state-grid">
             <i class="ri-flag-line empty-state-icon"></i>
             <p class="empty-state-title">Nenhuma meta cadastrada</p>
             <p class="empty-state-desc">Crie objetivos para guardar dinheiro (viagens, reserva de emergência, compras).</p>
@@ -1958,23 +1975,23 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
 
               <div class="goal-details">
-                <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 2px;">${this.escapeHtml(g.title)}</h3>
-                ${g.deadline ? `<p style="font-size: 0.78rem; color: var(--text-muted);"><i class="ri-calendar-line"></i> Prazo: ${this.formatDate(g.deadline)}</p>` : ''}
-                <div class="goal-values" style="margin-top: 4px;">
+                <h3 class="goal-title">${this.escapeHtml(g.title)}</h3>
+                ${g.deadline ? `<p class="goal-deadline"><i class="ri-calendar-line"></i> Prazo: ${this.formatDate(g.deadline)}</p>` : ''}
+                <div class="goal-values">
                   <div>
-                    <span style="font-size: 0.72rem; color: var(--text-secondary); display: block;">Guardado</span>
-                    <span class="goal-current-val" style="font-size: 1.15rem; color: ${color};">${this.formatCurrency(g.currentAmount)}</span>
+                    <span class="goal-value-label">Guardado</span>
+                    <span class="goal-current-val" style="color: ${color};">${this.formatCurrency(g.currentAmount)}</span>
                   </div>
-                  <div style="text-align: right;">
-                    <span style="font-size: 0.72rem; color: var(--text-secondary); display: block;">Alvo</span>
-                    <span class="goal-target-val" style="font-size: 0.82rem;">${this.formatCurrency(g.targetAmount)}</span>
+                  <div class="goal-target">
+                    <span class="goal-value-label">Alvo</span>
+                    <span class="goal-target-val">${this.formatCurrency(g.targetAmount)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 4px;">
-              <button class="btn btn-secondary btn-sm deposit-goal-btn" style="flex: 1;" data-id="${g.id}">
+            <div class="goal-card-actions">
+              <button class="btn btn-secondary btn-sm deposit-goal-btn" data-id="${g.id}">
                 <i class="ri-add-circle-line"></i> Guardar +
               </button>
               <button class="action-btn edit-goal-btn" data-id="${g.id}" title="Editar Meta">
@@ -2052,15 +2069,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const txs = report.topExpenses;
 
         if (txs.length === 0) {
-          topExpenseContainer.innerHTML = `<p class="empty-state-desc" style="padding: 16px 0;">Sem despesas no período selecionado.</p>`;
+          topExpenseContainer.innerHTML = `<p class="empty-state-desc report-empty">Sem despesas no período selecionado.</p>`;
         } else {
           topExpenseContainer.innerHTML = txs.map(tx => {
             const cat = window.financialState.getCategoryById(tx.category);
             return `
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+              <div class="report-list-row">
+                <div class="report-list-main">
                   <span class="tx-category-badge"><i class="${cat.icon}" style="color: ${cat.color};"></i> ${this.escapeHtml(cat.name)}</span>
-                  <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><strong>${this.escapeHtml(tx.description)}</strong></span>
+                  <span class="report-list-title"><strong>${this.escapeHtml(tx.description)}</strong></span>
                 </div>
                 <span class="tx-amount expense">${this.formatCurrency(tx.amount)}</span>
               </div>
@@ -2075,17 +2092,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const pending = report.pending.slice(0, 6);
 
         if (pending.length === 0) {
-          pendingContainer.innerHTML = `<p class="empty-state-desc" style="padding: 16px 0;">Nenhuma despesa pendente no período. Tudo em dia!</p>`;
+          pendingContainer.innerHTML = `<p class="empty-state-desc report-empty">Nenhuma despesa pendente no período. Tudo em dia!</p>`;
         } else {
           pendingContainer.innerHTML = pending.map(tx => {
             const cat = window.financialState.getCategoryById(tx.category);
             return `
-              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+              <div class="report-list-row">
+                <div class="report-list-main">
                   <span class="tx-category-badge"><i class="${cat.icon}" style="color: ${cat.color};"></i></span>
-                  <div style="min-width: 0;">
-                    <div style="font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${this.escapeHtml(tx.description)}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted);">Venc.: ${this.formatDate(window.financialState.getDueDate(tx))}</div>
+                  <div class="report-list-copy">
+                    <div class="report-list-title">${this.escapeHtml(tx.description)}</div>
+                    <div class="report-list-meta">Venc.: ${this.formatDate(window.financialState.getDueDate(tx))}</div>
                   </div>
                 </div>
                 <span class="tx-amount expense">${this.formatCurrency(tx.amount)}</span>
@@ -2100,30 +2117,30 @@ document.addEventListener('DOMContentLoaded', () => {
       if (diagnosticEl) {
         const scoreData = window.financialState.getFinancialScore(this.selectedPeriod);
         diagnosticEl.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
-            <div style="font-size: 2.2rem; font-weight: 800; color: ${scoreData.color}; line-height: 1;">${scoreData.score}</div>
-            <div>
-              <strong style="color: ${scoreData.color}; font-size: 0.95rem;">Classificação: ${scoreData.label}</strong>
-              <div style="font-size: 0.8rem; color: var(--text-secondary);">${scoreData.message}</div>
+          <div class="report-score-summary">
+            <div class="report-score-value" style="color: ${scoreData.color};">${scoreData.score}</div>
+            <div class="report-score-copy">
+              <strong style="color: ${scoreData.color};">Classificação: ${scoreData.label}</strong>
+              <div>${scoreData.message}</div>
             </div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            <div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
+          <div class="report-score-meters">
+            <div class="report-score-meter">
+              <div class="report-score-meter-label">
                 <span>Taxa de Poupança (meta 25%+)</span>
                 <strong>${scoreData.breakdown.savings}%</strong>
               </div>
               <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.savings}%; background: var(--income);"></div></div>
             </div>
-            <div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
+            <div class="report-score-meter">
+              <div class="report-score-meter-label">
                 <span>Controle de Orçamentos</span>
                 <strong>${scoreData.breakdown.budget}%</strong>
               </div>
               <div class="score-meter-track"><div class="score-meter-fill" style="width: ${scoreData.breakdown.budget}%; background: var(--accent-primary);"></div></div>
             </div>
-            <div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px;">
+            <div class="report-score-meter">
+              <div class="report-score-meter-label">
                 <span>Progresso em Metas</span>
                 <strong>${scoreData.breakdown.goals}%</strong>
               </div>
@@ -3540,10 +3557,10 @@ populateTxCategories(type, selectedCatId = null) {
 
       if (creditAccounts.length === 0) {
         grid.innerHTML = `
-          <div class="section-card" style="grid-column: 1 / -1; text-align: center; padding: 36px 20px;">
-            <i class="ri-bank-card-line" style="font-size: 2.8rem; color: var(--text-muted); margin-bottom: 12px; display: block;"></i>
-            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 6px;">Nenhum cartão de crédito cadastrado</h3>
-            <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 420px; margin: 0 auto 16px;">
+          <div class="section-card empty-state empty-state-grid credit-card-empty">
+            <i class="ri-bank-card-line empty-state-icon"></i>
+            <h3 class="empty-state-title">Nenhum cartão de crédito cadastrado</h3>
+            <p class="empty-state-desc">
               Cadastre cartões como Nubank, Itaú, XP ou Inter para gerenciar faturas, parcelamentos em 12x e o melhor dia de compra.
             </p>
             <button id="empty-add-card-btn" class="btn btn-primary" type="button">
@@ -3572,49 +3589,41 @@ populateTxCategories(type, selectedCatId = null) {
         const style = acc.style || (acc.name.toLowerCase().includes('nu') ? 'purple' : (acc.name.toLowerCase().includes('ita') || acc.name.toLowerCase().includes('inter') ? 'orange' : (acc.name.toLowerCase().includes('xp') ? 'black' : 'blue')));
 
         const pctUsed = details.creditLimit > 0 ? Math.min(100, Math.round((details.totalLimitUsed / details.creditLimit) * 100)) : 0;
-        const progressColor = pctUsed > 85 ? '#ef4444' : (pctUsed > 60 ? '#f59e0b' : '#10b981');
+        const usageClass = pctUsed > 85 ? 'danger' : (pctUsed > 60 ? 'warning' : 'safe');
+        const selectedClass = isSelected ? 'is-selected' : '';
 
         return `
-          <div class="credit-card-card" style="
-            background: ${this.getCardColor(style)};
-            border-radius: 18px;
-            padding: 22px;
-            color: #fff;
-            position: relative;
-            box-shadow: ${isSelected ? '0 12px 28px rgba(99, 102, 241, 0.45), 0 0 0 2px var(--accent-primary)' : '0 6px 18px rgba(0,0,0,0.25)'};
-            transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-            overflow: hidden;
-          ">
-            ${details.isBestDayToBuy ? `<div style="position: absolute; top: 12px; right: 12px; background: rgba(16, 185, 129, 0.9); font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px; border: 1px solid rgba(255,255,255,0.3);"><i class="ri-fire-fill"></i> Melhor Dia de Compra</div>` : ''}
+          <div class="credit-card-card ${selectedClass}" style="--credit-card-color: ${this.getCardColor(style)};">
+            ${details.isBestDayToBuy ? `<div class="credit-card-best-day"><i class="ri-fire-fill"></i> Melhor dia de compra</div>` : ''}
 
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-              <span style="font-size: 1.1rem; font-weight: 800; letter-spacing: -0.01em;">${this.escapeHtml(acc.name)}</span>
-              <i class="ri-bank-card-2-line" style="font-size: 1.4rem; opacity: 0.85;"></i>
+            <div class="credit-card-head">
+              <span>${this.escapeHtml(acc.name)}</span>
+              <i class="ri-bank-card-2-line"></i>
             </div>
 
-            <div style="font-size: 0.72rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px;">Fatura Aberta</div>
-            <div style="font-size: 1.5rem; font-weight: 800; margin-bottom: 14px;">${this.formatCurrency(details.currentInvoiceTotal)}</div>
+            <div class="credit-card-label">Fatura aberta</div>
+            <div class="credit-card-value">${this.formatCurrency(details.currentInvoiceTotal)}</div>
 
-            <div style="margin-bottom: 12px;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.75rem; opacity: 0.9; margin-bottom: 4px;">
+            <div class="credit-card-usage">
+              <div class="credit-card-usage-meta">
                 <span>Usado (${pctUsed}%)</span>
                 <span>${this.formatCurrency(details.limitAvailable)} livre</span>
               </div>
-              <div style="height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;">
-                <div style="height: 100%; width: ${pctUsed}%; background: ${progressColor}; border-radius: 3px; transition: width 0.5s ease;"></div>
+              <div class="credit-card-progress-track">
+                <div class="credit-card-progress-bar ${usageClass}" style="width: ${pctUsed}%;"></div>
               </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; opacity: 0.85; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.15);">
+            <div class="credit-card-dates">
               <span>Fecha dia ${details.closingDay}</span>
               <span>Vence dia ${details.dueDay}</span>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-top: 14px;">
-              <button class="btn btn-sm btn-card-select" type="button" data-card-name="${this.escapeHtml(acc.name)}" style="flex: 1; background: ${isSelected ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)'}; border: none; color: #fff; font-size: 0.78rem; font-weight: 600;">
+            <div class="credit-card-actions">
+              <button class="btn btn-sm btn-card-select ${isSelected ? 'is-selected' : ''}" type="button" data-card-name="${this.escapeHtml(acc.name)}">
                 <i class="ri-eye-line"></i> ${isSelected ? 'Fatura Selecionada' : 'Ver Fatura'}
               </button>
-              <button class="btn btn-sm btn-card-edit" type="button" data-card-name="${this.escapeHtml(acc.name)}" style="background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 0.78rem;">
+              <button class="btn btn-sm btn-card-edit" type="button" data-card-name="${this.escapeHtml(acc.name)}" aria-label="Editar cartão">
                 <i class="ri-pencil-line"></i>
               </button>
             </div>
@@ -3702,15 +3711,11 @@ populateTxCategories(type, selectedCatId = null) {
       const statusBadge = document.getElementById('invoice-status-badge');
       if (statusBadge) {
         if (invData.pendingTotal > 0) {
-          statusBadge.className = 'badge badge-warning';
+          statusBadge.className = 'status-pill status-pending invoice-status-badge';
           statusBadge.textContent = 'Fatura Aberta / Pendente';
-          statusBadge.style.background = 'rgba(245, 158, 11, 0.15)';
-          statusBadge.style.color = '#f59e0b';
         } else {
-          statusBadge.className = 'badge badge-paid';
+          statusBadge.className = 'status-pill status-paid invoice-status-badge';
           statusBadge.textContent = 'Fatura Paga';
-          statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-          statusBadge.style.color = '#10b981';
         }
       }
 
@@ -4028,7 +4033,9 @@ populateTxCategories(type, selectedCatId = null) {
           if (!file) return;
 
           const reader = new FileReader();
+          const generation = window.financeSync ? window.financeSync._generation : 0;
           reader.onload = (event) => {
+            if (window.financeSync && generation !== window.financeSync._generation) return;
             const success = window.financialState.importJSON(event.target.result);
             if (success) {
               this.showToast('Dados restaurados com sucesso!', 'success');
@@ -4050,7 +4057,9 @@ populateTxCategories(type, selectedCatId = null) {
           if (!file) return;
 
           const reader = new FileReader();
+          const generation = window.financeSync ? window.financeSync._generation : 0;
           reader.onload = (event) => {
+            if (window.financeSync && generation !== window.financeSync._generation) return;
             if (confirm('Importar CSV substituirá TODAS as transações atuais pelas do arquivo. Continuar?')) {
               const success = window.financialState.importCSV(event.target.result);
               if (success) {
@@ -4091,7 +4100,9 @@ populateTxCategories(type, selectedCatId = null) {
             submitButton.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Validando...';
           }
 
+          const generation = sync._generation;
           const verification = await sync.verifyPassword(password);
+          if (generation !== sync._generation) return;
           if (verification && verification.error) {
             this.showToast('Senha incorreta. Os dados não foram alterados.', 'error');
             if (passwordInput) {
@@ -4107,6 +4118,7 @@ populateTxCategories(type, selectedCatId = null) {
 
           window.financialState.resetAllData();
           const cloudResult = await sync.push({ replaceRemote: true });
+          if (generation !== sync._generation) return;
           resetForm.reset();
           this.closeModal('modal-reset-data');
           this.renderAll();

@@ -6478,3 +6478,939 @@ body.light-theme .period-current-card strong {
     padding-inline: 10px;
   }
 }
+
+/* ==========================================================================
+   FINANZEN UI SYSTEM — padrão único para todas as abas e blocos
+   ========================================================================== */
+
+:root {
+  --panel-radius: 14px;
+  --control-radius: 10px;
+  --panel-padding: 20px;
+  --content-gap: 20px;
+}
+
+.tab-content,
+.tab-content.tab-entering {
+  animation: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.tab-content.active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--content-gap);
+}
+
+.tab-content > .tab-header-card,
+.tab-content > .filters-bar,
+.tab-content > .credit-cards-grid,
+.tab-content > .metrics-grid,
+.tab-content > .charts-grid,
+.tab-content > .section-card,
+.tab-content > .budgets-grid,
+.tab-content > .goals-grid,
+.tab-content > .report-toolbar {
+  margin: 0;
+}
+
+.metrics-grid > .metric-card,
+.budgets-grid > .budget-card,
+.goals-grid > .goal-card,
+.charts-grid > .chart-card,
+.charts-grid > .section-card,
+.score-card,
+.forecast-card,
+.month-comparison-section,
+.settings-module.settings-module-active {
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+  animation: none !important;
+  animation-delay: 0s !important;
+}
+
+.metric-card,
+.chart-card,
+.section-card,
+.budget-card,
+.goal-card,
+.score-card,
+.forecast-card,
+.comparison-card,
+.settings-card,
+.tab-header-card,
+.month-comparison-section,
+.filters-bar,
+.report-toolbar,
+.settings-block-nav button,
+.data-stat,
+.customize-row,
+.open-finance-state,
+.open-finance-connection,
+.recovery-empty,
+.recovery-row {
+  border-radius: var(--panel-radius);
+}
+
+.chart-card,
+.section-card,
+.tab-header-card,
+.report-toolbar,
+.settings-card {
+  padding: var(--panel-padding);
+}
+
+.metric-card,
+.budget-card,
+.goal-card,
+.score-card,
+.forecast-card,
+.comparison-card,
+.month-comparison-section {
+  padding: var(--panel-padding);
+}
+
+.chart-card:hover,
+.section-card:hover,
+.metric-card:hover,
+.budget-card:hover,
+.goal-card:hover,
+.score-card:hover,
+.forecast-card:hover,
+.comparison-card:hover,
+.settings-card:hover,
+.tab-header-card:hover {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+.tab-header-card {
+  min-height: 86px;
+  align-items: center;
+  gap: 18px;
+}
+
+.tab-header-card > div {
+  min-width: 0;
+  flex: 1 1 420px;
+}
+
+.tab-intro-title {
+  color: var(--text-primary);
+  font-size: 1.08rem;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.tab-intro-description {
+  max-width: 760px;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.section-title,
+.chart-title,
+.report-section-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.chart-subtitle {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-canvas-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-canvas-tall {
+  height: 280px;
+}
+
+.btn,
+.form-control,
+.custom-select,
+.search-input-wrapper input,
+.period-selector-btn,
+.theme-toggle-btn,
+.settings-back-btn {
+  border-radius: var(--control-radius);
+}
+
+.btn {
+  min-height: 42px;
+  padding: 9px 16px;
+  font-size: 0.84rem;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 7px 11px;
+  font-size: 0.76rem;
+}
+
+.action-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+
+.filters-bar {
+  align-items: flex-end;
+  padding: 16px;
+  gap: 12px;
+}
+
+.filters-group {
+  flex: 1 1 680px;
+  gap: 10px;
+}
+
+.filters-group > * {
+  min-height: 42px;
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-input-wrapper {
+  flex: 1 1 230px;
+}
+
+.custom-select {
+  flex: 1 1 170px;
+  min-width: 150px;
+}
+
+.custom-table th,
+.custom-table td {
+  padding-inline: 14px;
+}
+
+.custom-table th {
+  height: 46px;
+  font-size: 0.67rem;
+}
+
+.custom-table td {
+  height: 56px;
+}
+
+.table-number {
+  text-align: right;
+}
+
+.tx-category-badge,
+.status-pill,
+.badge-type,
+.trend-badge,
+.fixed-badge,
+.open-finance-status {
+  border-radius: 999px;
+}
+
+.empty-state-grid {
+  grid-column: 1 / -1;
+}
+
+.empty-state {
+  min-height: 210px;
+  padding: 36px 20px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--panel-radius);
+  background: var(--bg-card);
+}
+
+.empty-state-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin: 0 0 4px;
+  border-radius: 14px;
+  color: var(--accent-secondary);
+  background: var(--bg-tertiary);
+  font-size: 1.6rem;
+}
+
+.empty-state-title {
+  font-size: 1rem;
+}
+
+.empty-state-desc {
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.custom-table td.empty-state {
+  min-height: 0;
+  padding: 32px 16px;
+  display: table-cell;
+  border: 0;
+  background: transparent;
+}
+
+.custom-table td.empty-state .empty-state-icon {
+  display: inline-grid;
+  margin-inline: auto;
+}
+
+/* Cartões e faturas */
+.credit-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 356px));
+  gap: var(--content-gap);
+}
+
+.credit-card-card,
+.credit-card-card:hover,
+.spatial-ui .credit-card-card.is-tilting {
+  min-height: 272px;
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
+  background: var(--credit-card-color, #146eb4);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: var(--panel-radius);
+  box-shadow: none !important;
+}
+
+.credit-card-card.is-selected {
+  outline: 2px solid #8fc2ff;
+  outline-offset: 2px;
+}
+
+.credit-card-best-day {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  color: #ffffff;
+  background: #087f5b;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.credit-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.credit-card-head span {
+  overflow: hidden;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credit-card-head i {
+  flex: 0 0 auto;
+  font-size: 1.4rem;
+  opacity: 0.82;
+}
+
+.credit-card-label {
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  opacity: 0.82;
+  text-transform: uppercase;
+}
+
+.credit-card-value {
+  margin-bottom: 14px;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.credit-card-usage {
+  margin-bottom: 12px;
+}
+
+.credit-card-usage-meta,
+.credit-card-dates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.72rem;
+}
+
+.credit-card-usage-meta {
+  margin-bottom: 5px;
+  opacity: 0.9;
+}
+
+.credit-card-progress-track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.credit-card-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: #32c48d;
+}
+
+.credit-card-progress-bar.warning { background: #f2bd4b; }
+.credit-card-progress-bar.danger { background: #ff7185; }
+
+.credit-card-dates {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  opacity: 0.86;
+}
+
+.credit-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.credit-card-actions .btn {
+  min-height: 36px;
+  color: #ffffff;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+
+.credit-card-actions .btn-card-select {
+  flex: 1;
+}
+
+.credit-card-actions .btn.is-selected {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.invoice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.invoice-title-group,
+.invoice-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.invoice-title-group h3 {
+  font-size: 1.05rem;
+  font-weight: 750;
+}
+
+.invoice-status-badge {
+  padding: 4px 9px;
+  font-size: 0.69rem;
+}
+
+.invoice-period-select {
+  width: auto;
+  min-width: 170px;
+  font-weight: 650;
+}
+
+.invoice-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.invoice-kpi-card {
+  min-height: 100px;
+  padding: 15px 16px;
+  justify-content: center;
+}
+
+.invoice-kpi-label {
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.invoice-kpi-value {
+  margin-top: 5px;
+  color: var(--text-primary);
+  font-size: 1.18rem;
+  font-weight: 800;
+}
+
+.invoice-kpi-expense .invoice-kpi-value { color: var(--expense); }
+.invoice-kpi-highlight .invoice-kpi-value { color: var(--accent-secondary); }
+
+/* Orçamentos e metas */
+.budgets-grid,
+.goals-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--content-gap);
+}
+
+.budget-card,
+.goal-card {
+  min-width: 0;
+  gap: 15px;
+}
+
+.budget-card-header {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.budget-category {
+  min-width: 0;
+  flex: 1;
+}
+
+.budget-category > div:last-child {
+  min-width: 0;
+}
+
+.budget-category-title,
+.goal-title {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.budget-category-limit,
+.goal-deadline {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.budget-card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+
+.budget-info-muted {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.budget-status {
+  font-weight: 750;
+}
+
+.budget-status-ok { color: var(--income); }
+.budget-status-warning { color: var(--warning); }
+.budget-status-danger { color: var(--expense); }
+
+.goal-avatar {
+  background: var(--accent-primary);
+}
+
+.goal-card-content {
+  min-width: 0;
+}
+
+.goal-details {
+  min-width: 0;
+}
+
+.goal-values {
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.goal-value-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.goal-current-val {
+  font-size: 1.08rem;
+}
+
+.goal-target {
+  text-align: right;
+}
+
+.goal-target-val {
+  font-size: 0.8rem;
+}
+
+.goal-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.goal-card-actions .deposit-goal-btn {
+  flex: 1;
+}
+
+/* Relatórios */
+.report-list-row {
+  min-width: 0;
+  min-height: 50px;
+  padding: 9px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.report-list-row:last-child {
+  border-bottom: 0;
+}
+
+.report-list-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-list-copy,
+.report-list-title {
+  min-width: 0;
+}
+
+.report-list-title {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-list-meta {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.report-list-row .tx-amount {
+  flex: 0 0 auto;
+  font-size: 0.84rem;
+}
+
+.report-empty {
+  padding: 18px 0;
+}
+
+.report-score-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.report-score-value {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.report-score-copy strong {
+  font-size: 0.88rem;
+}
+
+.report-score-copy div {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.report-score-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-score-meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.financial-tips-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.financial-tip {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-left-width: 3px;
+  border-radius: 11px;
+  background: var(--bg-tertiary);
+}
+
+.financial-tip-income { border-left-color: var(--income); }
+.financial-tip-info { border-left-color: var(--info); }
+.financial-tip-warning { border-left-color: var(--warning); }
+
+.financial-tip strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.82rem;
+}
+
+.financial-tip p {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+/* Configurações */
+.settings-hero {
+  border-radius: var(--panel-radius);
+  background: var(--bg-card);
+  background-image: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-block-nav button,
+.data-stat {
+  box-shadow: none;
+  transform: none;
+}
+
+.settings-block-nav button:hover,
+.data-stat:hover {
+  border-color: var(--border-focus);
+  box-shadow: none;
+  transform: none;
+}
+
+.settings-nav-icon,
+.data-stat > i {
+  filter: none;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .invoice-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .financial-tips-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --panel-padding: 18px;
+    --content-gap: 16px;
+  }
+
+  .tab-content.active {
+    gap: var(--content-gap);
+  }
+
+  .tab-header-card {
+    min-height: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 18px;
+  }
+
+  .tab-header-card > div {
+    width: 100%;
+    flex: none;
+  }
+
+  .tab-header-card .btn {
+    width: 100%;
+    max-width: 100%;
+    align-self: stretch;
+  }
+
+  .filters-bar {
+    align-items: stretch;
+    padding: 16px;
+  }
+
+  .filters-group,
+  .filter-actions {
+    width: 100%;
+    flex: none;
+  }
+
+  .filters-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .search-input-wrapper {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .custom-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filter-actions .btn {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .credit-cards-grid,
+  .budgets-grid,
+  .goals-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-card-card,
+  .credit-card-card:hover,
+  .spatial-ui .credit-card-card.is-tilting {
+    min-height: 270px;
+    padding: 22px;
+  }
+
+  .invoice-header {
+    align-items: flex-start;
+  }
+
+  .invoice-title-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .invoice-actions {
+    width: 100%;
+  }
+
+  .invoice-period-select {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .invoice-actions .btn {
+    flex: 0 0 auto;
+  }
+
+  .invoice-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .invoice-kpi-card {
+    min-height: 94px;
+    padding: 13px;
+  }
+
+  .invoice-kpi-value {
+    font-size: 1.05rem;
+  }
+
+  .report-toolbar {
+    align-items: flex-start;
+  }
+
+  .report-list-row {
+    align-items: flex-start;
+  }
+
+  .report-list-main {
+    align-items: flex-start;
+  }
+
+  .report-list-main .tx-category-badge {
+    max-width: 118px;
+    white-space: normal;
+  }
+
+  .settings-block-nav {
+    gap: 10px;
+  }
+
+  .settings-block-nav button {
+    min-height: 82px;
+    padding: 13px;
+  }
+}
+
+@media (max-width: 420px) {
+  .filter-actions .btn {
+    font-size: 0.75rem;
+  }
+
+  .invoice-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .goal-card-content {
+    align-items: center;
+  }
+
+  .goal-values {
+    align-items: flex-end;
+  }
+}

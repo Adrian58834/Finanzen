@@ -47,12 +47,75 @@ class FinancialState {
       { id: 'acc_outro', name: 'Outro', type: 'bank', openingBalance: 0, creditLimit: 0 }
     ];
 
-    this.data = this.loadData();
-    this.settings = this.loadSettings();
+    this.scope = 'local';
+    this.loadScope();
   }
 
-  loadSettings() {
+  loadScope() {
+    this._loadError = null;
     try {
+      this._storedValue = localStorage.getItem(this.STORAGE_KEY);
+      this.data = this.loadData(this._storedValue);
+      this.settings = this.loadSettings(this._storedValue);
+      const stored = this._storedValue ? JSON.parse(this._storedValue) : {};
+      this.changeVersion = Number(stored.__change || localStorage.getItem(this.LAST_CHANGE_KEY) || 0);
+    } catch (error) {
+      this._loadError = 'Os dados locais não puderam ser lidos. Preserve os arquivos do navegador antes de recuperar.';
+      this.data = this.emptyData();
+      this.settings = this.normalizeSettings({});
+      this.changeVersion = 0;
+    }
+    this._committed = JSON.stringify({ data: this.data, settings: this.settings });
+  }
+
+  switchScope(userId) {
+    const scope = userId ? `user:${userId}` : 'local';
+    if (scope === this.scope) return;
+    const suffix = userId ? `:${userId}` : '';
+    this.scope = scope;
+    this.STORAGE_KEY = `finanzen_data_v1${suffix}`;
+    this.SETTINGS_KEY = `finanzen_settings_v1${suffix}`;
+    this.LAST_CHANGE_KEY = `finanzen_last_local_change${suffix}`;
+    this.RECOVERY_KEY = `finanzen_recovery_v1${suffix}`;
+    this.loadScope();
+  }
+
+  emptyData() {
+    return { transactions: [], budgets: [], goals: [], accounts: this.cloneDefaultAccounts(),
+      customCategories: [], recurring: [], tombstones: this.emptyTombstones() };
+  }
+
+  persist(data = this.data, settings = this.settings, localChange = true) {
+    try {
+      if (this._loadError) throw new Error(this._loadError);
+      if (localStorage.getItem(this.STORAGE_KEY) !== this._storedValue) {
+        throw new Error('Os dados foram alterados em outra aba. Recarregue o aplicativo antes de editar.');
+      }
+      const change = localChange ? Math.max(Date.now(), this.changeVersion + 1) : this.changeVersion;
+      const value = JSON.stringify({ ...data, __settings: settings, __change: change });
+      localStorage.setItem(this.STORAGE_KEY, value);
+      this._storedValue = value;
+      this.data = data;
+      this.settings = settings;
+      this.changeVersion = change;
+      this._committed = JSON.stringify({ data, settings });
+    } catch (error) {
+      if (this._committed) {
+        const previous = JSON.parse(this._committed);
+        this.data = previous.data;
+        this.settings = previous.settings;
+      }
+      const message = this._loadError || (error.message.includes('outra aba') ? error.message
+        : 'Não foi possível salvar no dispositivo. A alteração não foi concluída. Exporte um backup e verifique o armazenamento.');
+      if (window.app && window.app.showToast) window.app.showToast(message, 'error');
+      if (window.financeSync) window.financeSync.setError(message);
+      throw new Error(message);
+    }
+  }
+
+  loadSettings(document = localStorage.getItem(this.STORAGE_KEY)) {
+    try {
+      if (document && JSON.parse(document).__settings) return this.normalizeSettings(JSON.parse(document).__settings);
       const stored = localStorage.getItem(this.SETTINGS_KEY);
       return this.normalizeSettings(stored ? JSON.parse(stored) : {});
     } catch (e) {
@@ -62,8 +125,7 @@ class FinancialState {
 
   saveSettings(settings) {
     this.settings = this.normalizeSettings({ ...this.settings, ...settings });
-    localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
-    this.notifyDataChanged();
+    this.saveData();
   }
 
   normalizeSettings(settings) {
@@ -80,18 +142,19 @@ class FinancialState {
     return normalized;
   }
 
-  loadData() {
+  loadData(stored = localStorage.getItem(this.STORAGE_KEY)) {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
         const data = this.normalizeData(JSON.parse(stored));
         if (data) return data;
+        throw new Error('Documento local inválido.');
       }
     } catch (e) {
       console.error('Erro ao carregar dados locais:', e);
+      throw e;
     }
     // Carga inicial com dados demonstrativos inteligentes no mês corrente
-    return this.generateSeedData();
+    return this.scope === 'local' ? this.generateSeedData() : this.emptyData();
   }
 
   safeText(value, fallback = '', maxLength = 200) {
@@ -304,12 +367,26 @@ class FinancialState {
     };
   }
 
-  saveData() {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
-    } catch (e) {
-      console.error('Erro ao salvar dados no localStorage:', e);
+  mergeSyncData(base, remote, local) {
+    const merged = this.mergeData(remote, local, true);
+    if (!base) return merged;
+    const normalizedBase = this.normalizeData(base);
+    if (!normalizedBase) return merged;
+    for (const collection of Object.keys(this.emptyTombstones())) {
+      const before = new Map(normalizedBase[collection].map(item => [item.id, item]));
+      const incoming = new Map(remote[collection].map(item => [item.id, item]));
+      merged[collection] = merged[collection].map(item => {
+        const previous = before.get(item.id);
+        // Preserve remote edits to records that this device did not edit.
+        return previous && incoming.has(item.id) && JSON.stringify(previous) === JSON.stringify(item)
+          ? incoming.get(item.id) : item;
+      });
     }
+    return merged;
+  }
+
+  saveData() {
+    this.persist();
     this.notifyDataChanged();
   }
 
@@ -318,11 +395,6 @@ class FinancialState {
     if (this._suspendSync) return;
     // Marca o instante real da última alteração local: usado pelo sync para
     // decidir entre baixar da nuvem ou enviar (evita sobrescrever edição local).
-    try {
-      localStorage.setItem(this.LAST_CHANGE_KEY, String(Date.now()));
-    } catch (e) {
-      console.error('Erro ao registrar alteração local:', e);
-    }
     if (typeof window !== 'undefined' && window.financeSync && typeof window.financeSync.schedulePush === 'function') {
       window.financeSync.schedulePush();
     }
@@ -484,7 +556,6 @@ class FinancialState {
       tombstones: this.emptyTombstones()
     };
 
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(initialData));
     return initialData;
   }
 
@@ -2111,9 +2182,7 @@ class FinancialState {
     this.createRecoverySnapshot('Antes de restaurar um ponto de recuperação', this.data, this.settings, { source: 'manual' });
     this.data = normalized;
     this.settings = this.normalizeSettings(snapshot.settings || this.settings);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
-    localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
-    this.notifyDataChanged();
+    this.saveData();
     return true;
   }
 

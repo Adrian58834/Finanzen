@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const { createSyncEnv, flush } = require('./helpers/sync-setup');
 
 const CONFIG = { url: 'https://teste.supabase.co', anonKey: 'anon-key', table: 'finanzen_data' };
-const META_KEY = 'finanzen_sync_v1';
+const META_KEY = 'finanzen_sync_v1:user-1';
 
 function remoteData(desc) {
   return {
@@ -77,7 +77,7 @@ test('primeiro login sem dados na nuvem envia o estado local', async () => {
   assert.strictEqual(row.data.transactions.length, env.state.data.transactions.length);
 });
 
-test('nuvem mais antiga não sobrescreve o local', async () => {
+test('edição local pendente prevalece sem depender do relógio da nuvem', async () => {
   const env = createSyncEnv({
     config: CONFIG,
     rows: [{
@@ -92,6 +92,8 @@ test('nuvem mais antiga não sobrescreve o local', async () => {
   await env.sync.init();
   env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
   const localDesc = env.state.data.transactions[0].description;
+
+  env.state.saveData();
 
   await env.sync.pullIfNewer();
 
@@ -116,6 +118,8 @@ test('edição local depois do último sync vence nuvem mais nova (sem perda de 
   await env.sync.init();
   env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
   const localDesc = env.state.data.transactions[0].description;
+
+  env.state.saveData();
 
   await env.sync.pullIfNewer();
 
@@ -271,4 +275,184 @@ test('signOut limpa o usuário', async () => {
 
   assert.strictEqual(env.sync.user, null);
   assert.strictEqual(env.sync.status, 'signed-out');
+});
+
+function selectUser(env, id) {
+  const user = id ? { id, email: `${id}@teste.com` } : null;
+  env.sync.client.auth._session = user ? { user } : null;
+  env.sync.changeUser(user);
+}
+
+test('contas isolam dados, preferências, recuperação e metadados sem migrar o legado automaticamente', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  env.state.saveSettings({ currency: 'EUR' });
+  const legacy = env.storage.getItem(env.state.STORAGE_KEY);
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  assert.strictEqual(env.state.data.transactions.length, 0);
+  env.state.addTransaction({ description: 'Privado A', amount: 10, type: 'income' });
+  env.state.saveSettings({ currency: 'USD' });
+  env.state.createRecoverySnapshot('A');
+  await env.sync.push();
+  selectUser(env, 'user-2');
+  assert.strictEqual(env.state.data.transactions.length, 0);
+  assert.strictEqual(env.state.settings.currency, 'BRL');
+  assert.strictEqual(env.state.getRecoverySnapshots().length, 0);
+  assert.strictEqual(env.sync.lastSyncedAt, null);
+  await env.sync.push();
+  assert.strictEqual(env.fake.rows.get('user-2').data.transactions.length, 0);
+  selectUser(env, 'user-1');
+  assert.strictEqual(env.state.data.transactions[0].description, 'Privado A');
+  assert.strictEqual(env.state.settings.currency, 'USD');
+  assert.ok(env.state.getRecoverySnapshots().length);
+  await env.sync.signOut();
+  assert.strictEqual(env.state.settings.currency, 'EUR');
+  assert.strictEqual(env.storage.getItem('finanzen_data_v1'), legacy);
+  clearTimeout(env.sync._pushTimer);
+});
+
+test('resposta de leitura da sessão anterior não altera a conta atual', async () => {
+  const env = createSyncEnv({ config: CONFIG, rows: [{ user_id: 'user-1', data: remoteData('Segredo A'), settings: {}, updated_at: '2099-01-01' }] });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  let release;
+  let started;
+  const reading = new Promise(resolve => { started = resolve; });
+  env.fake.state.beforeRead = () => { started(); return new Promise(resolve => { release = resolve; }); };
+  const pending = env.sync.pull();
+  await reading;
+  selectUser(env, 'user-2');
+  release();
+  assert.ok((await pending).error);
+  assert.strictEqual(env.state.data.transactions.length, 0);
+  assert.strictEqual(env.storage.getItem(env.sync.metaKey()), null);
+});
+
+test('troca de sessão durante envio não grava dados A na conta B', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  env.state.addTransaction({ description: 'Privado A', amount: 12, type: 'income' });
+  let release;
+  let started;
+  const writing = new Promise(resolve => { started = resolve; });
+  env.fake.state.beforeWrite = () => { started(); return new Promise(resolve => { release = resolve; }); };
+  const pending = env.sync.push();
+  await writing;
+  selectUser(env, 'user-2');
+  release();
+  assert.ok((await pending).error);
+  assert.strictEqual(env.fake.rows.has('user-2'), false);
+  assert.strictEqual(env.state.data.transactions.length, 0);
+});
+
+test('conflito de revisão relê a nuvem e preserva registros de ambos os aparelhos', async () => {
+  const env = createSyncEnv({ config: CONFIG, rows: [{ user_id: 'user-1', data: remoteData('Inicial'), settings: {}, updated_at: '2026-01-01' }] });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  env.state.addTransaction({ description: 'Local', amount: 12, type: 'income' });
+  env.fake.state.beforeWrite = () => {
+    env.fake.state.beforeWrite = null;
+    const row = env.fake.rows.get('user-1');
+    row.data.transactions.push({ ...row.data.transactions[0], id: 'tx-outro-aparelho', description: 'Concorrente' });
+    row.revision += 1;
+  };
+  assert.strictEqual((await env.sync.push()).ok, true);
+  const saved = env.fake.rows.get('user-1').data.transactions;
+  assert.ok(saved.some(tx => tx.description === 'Local'));
+  assert.ok(saved.some(tx => tx.description === 'Concorrente'));
+  assert.strictEqual(env.fake.state.rpcCalls, 2);
+  clearTimeout(env.sync._pushTimer);
+});
+
+test('conflitos contínuos encerram com erro sem marcar sincronização concluída', async () => {
+  const env = createSyncEnv({ config: CONFIG, rows: [{ user_id: 'user-1', data: remoteData('Original'), settings: {}, updated_at: '2026-01-01' }] });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  env.fake.state.beforeWrite = () => { env.fake.rows.get('user-1').revision += 1; };
+  assert.ok((await env.sync.push()).error);
+  assert.strictEqual(env.fake.state.rpcCalls, 3);
+  assert.strictEqual(env.sync.status, 'error');
+  assert.strictEqual(env.storage.getItem(env.sync.metaKey()), null);
+});
+
+test('edição durante envio continua pendente e é enviada na próxima sincronização', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  env.state.addTransaction({ description: 'Primeira', amount: 12, type: 'income' });
+  env.fake.state.beforeWrite = () => {
+    env.fake.state.beforeWrite = null;
+    env.state.addTransaction({ description: 'Durante envio', amount: 20, type: 'income' });
+  };
+  await env.sync.push();
+  assert.ok(env.state.changeVersion > env.sync.loadMeta().lastLocalChangeAt);
+  assert.strictEqual(env.sync.status, 'syncing');
+  assert.strictEqual(env.fake.rows.get('user-1').data.transactions.length, 1);
+  await env.sync.push();
+  assert.strictEqual(env.fake.rows.get('user-1').data.transactions.length, 2);
+  assert.strictEqual(env.sync.status, 'synced');
+  clearTimeout(env.sync._pushTimer);
+});
+
+test('merge de três vias preserva alterações independentes em registros já existentes', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  const first = env.state.addTransaction({ description: 'Primeiro', amount: 12, type: 'income' });
+  const second = env.state.addTransaction({ description: 'Segundo', amount: 20, type: 'income' });
+  await env.sync.push();
+  env.state.updateTransaction(first.id, { description: 'Editado localmente' });
+  const row = env.fake.rows.get('user-1');
+  row.data.transactions.find(tx => tx.id === second.id).description = 'Editado remotamente';
+  row.revision += 1;
+  await env.sync.push();
+  const saved = env.fake.rows.get('user-1').data.transactions;
+  assert.strictEqual(saved.find(tx => tx.id === first.id).description, 'Editado localmente');
+  assert.strictEqual(saved.find(tx => tx.id === second.id).description, 'Editado remotamente');
+  clearTimeout(env.sync._pushTimer);
+});
+
+test('envios solicitados juntos são serializados', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  let active = 0;
+  let maximum = 0;
+  env.fake.state.beforeWrite = async () => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await flush();
+    active -= 1;
+  };
+  const results = await Promise.all([env.sync.push(), env.sync.push(), env.sync.pullIfNewer()]);
+  assert.ok(results.every(result => result.ok));
+  assert.strictEqual(maximum, 1);
+});
+
+test('backend sem RPC falha com instrução de atualização e preserva dados locais', async () => {
+  const env = createSyncEnv({ config: CONFIG });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  env.sync.client.rpc = async () => ({ error: { message: 'Function not found' } });
+  const before = JSON.stringify(env.state.data);
+  const result = await env.sync.push();
+  assert.match(result.error, /schema.sql/);
+  assert.strictEqual(JSON.stringify(env.state.data), before);
+  assert.strictEqual(env.sync.status, 'error');
+});
+
+test('falha de persistência ao receber não atualiza dados nem metadados de sucesso', async () => {
+  const env = createSyncEnv({ config: CONFIG, rows: [{ user_id: 'user-1', data: remoteData('Remoto'), settings: {}, updated_at: '2099-01-01' }] });
+  await env.sync.init();
+  selectUser(env, 'user-1');
+  const original = env.storage.setItem.bind(env.storage);
+  env.storage.setItem = (key, value) => {
+    if (key === env.state.STORAGE_KEY) throw new Error('QuotaExceededError');
+    original(key, value);
+  };
+  assert.ok((await env.sync.pull()).error);
+  assert.strictEqual(env.state.data.transactions.length, 0);
+  assert.strictEqual(env.storage.getItem(env.sync.metaKey()), null);
+  assert.strictEqual(env.sync.status, 'error');
 });

@@ -4,7 +4,7 @@ O **FinanZen** é uma aplicação web (PWA) moderna, sofisticada e intuitiva pro
 
 Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **opcional**.
 
-**Versão atual:** 1.8.1 — consulte o [histórico de alterações](CHANGELOG.md).
+**Versão atual:** 1.9.1 — consulte o [histórico de alterações](CHANGELOG.md).
 
 ---
 
@@ -79,13 +79,26 @@ Não é necessário instalar nenhum servidor ou banco de dados.
 
 Para publicar, verifique [DEPLOY.md](DEPLOY.md) (guia completo) e [GUIA-RAPIDO.md](GUIA-RAPIDO.md) (resumo de 1 página).
 
-> Atualizando uma instalação anterior para a versão 1.6.3 ou superior:
+> Atualizando uma instalação anterior para a versão 1.9.1 ou superior:
 > execute novamente o arquivo `supabase/schema.sql` no SQL Editor. O script é
-> idempotente e cria o histórico de segurança sem apagar a tabela atual.
+> idempotente, preserva a tabela atual, cria o controle de revisão e bloqueia
+> gravações diretas de clientes antigos.
 
 ---
 
 ## Desenvolvimento
+
+### Atualização para 1.9.1: contas e sincronização
+
+Execute o arquivo completo `supabase/schema.sql` no SQL Editor do Supabase antes de publicar esta versão. Ele mantém os dados e o histórico existentes, adiciona revisões e a função `finanzen_compare_and_set`, e bloqueia gravações diretas de versões antigas. Atualize o aplicativo em todos os aparelhos. O cliente exige a tabela padrão `finanzen_data`.
+
+Cada usuário agora tem seus próprios dados, preferências, histórico local e metadados de sincronização. Ao sair, o aplicativo volta ao espaço local do navegador. Os dados antigos, sem identificação de proprietário, permanecem nesse espaço e não são associados automaticamente à primeira conta que entrar. Para migrá-los, saia da conta, exporte o backup JSON, entre na conta correta e importe o arquivo.
+
+Dados, preferências e o marcador de alteração são salvos juntos. Falhas de gravação revertem a alteração em memória e exibem um erro. Uma aba desatualizada deve ser recarregada antes de editar. Documentos locais ilegíveis são preservados e sua sobrescrita fica bloqueada.
+
+Os envios são serializados e conferem a revisão no servidor. Em caso de conflito, o cliente relê e combina os dados, com até três tentativas. A comparação com a última cópia sincronizada preserva edições independentes em registros diferentes. Se dois aparelhos alterarem o mesmo registro, a edição local pendente tem prioridade; exclusões registradas prevalecem. O histórico permite recuperar versões anteriores. Edições feitas durante um envio continuam pendentes para o próximo envio.
+
+O isolamento é entre os espaços do aplicativo. As cópias locais continuam no perfil do navegador e podem ser acessadas por quem controla esse perfil.
 
 ```bash
 npm test        # testes de negócio, sync e integridade (node:test)

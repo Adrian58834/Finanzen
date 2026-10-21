@@ -496,6 +496,78 @@ test('layout nao estoura em larguras critica de celular, tablet e desktop', asyn
   }
 });
 
+test('todas as abas seguem o mesmo padrão visual no desktop e no mobile', async () => {
+  const tabs = ['dashboard', 'transactions', 'cards', 'budgets', 'goals', 'reports', 'settings'];
+  const surfaceSelector = [
+    '.metric-card', '.chart-card', '.section-card', '.budget-card', '.goal-card',
+    '.score-card', '.forecast-card', '.comparison-card', '.settings-card',
+    '.tab-header-card', '.filters-bar', '.report-toolbar', '.settings-block-nav button'
+  ].join(',');
+
+  for (const viewport of [
+    { width: 390, height: 844, mobile: true },
+    { width: 1440, height: 900, mobile: false }
+  ]) {
+    await openViewport(viewport);
+    for (const tab of tabs) {
+      await cdp.evaluate(`document.querySelector('.nav-item[data-tab="${tab}"]').click()`);
+      await delay(80);
+      const audit = await cdp.evaluate(`(() => {
+        const activeTab = document.getElementById('tab-${tab}');
+        const sidebarRect = document.querySelector('.sidebar').getBoundingClientRect();
+        const titleRect = document.getElementById('header-page-title').getBoundingClientRect();
+        const surfaces = [...activeTab.querySelectorAll(${JSON.stringify(surfaceSelector)})]
+          .filter(element => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          });
+        const outOfBoundsActions = [...activeTab.querySelectorAll('.tab-header-card .btn')]
+          .map(button => {
+            const buttonRect = button.getBoundingClientRect();
+            const cardRect = button.closest('.tab-header-card').getBoundingClientRect();
+            return {
+              text: button.textContent.trim(),
+              left: buttonRect.left,
+              right: buttonRect.right,
+              cardLeft: cardRect.left,
+              cardRight: cardRect.right
+            };
+          })
+          .filter(item => item.left < item.cardLeft - 1 || item.right > item.cardRight + 1);
+        const filtersHeight = activeTab.querySelector('.filters-bar')?.getBoundingClientRect().height || 0;
+        return {
+          active: activeTab.classList.contains('active'),
+          overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+          titleAfterSidebar: innerWidth <= 767 || titleRect.left >= sidebarRect.right + 16,
+          surfaceCount: surfaces.length,
+          outOfBoundsActions,
+          filtersHeight,
+          invalidSurfaces: surfaces.map(element => {
+            const style = getComputedStyle(element);
+            return {
+              className: String(element.className || ''),
+              opacity: Number(style.opacity),
+              image: style.backgroundImage,
+              backdrop: style.backdropFilter || style.webkitBackdropFilter,
+              radius: parseFloat(style.borderTopLeftRadius) || 0
+            };
+          }).filter(item => item.opacity < 0.99 || item.image !== 'none' || item.backdrop !== 'none' || item.radius < 10)
+        };
+      })()`);
+      assert.equal(audit.active, true, `aba ${tab} deve ficar ativa em ${viewport.width}px`);
+      assert.equal(audit.overflow, false, `aba ${tab} não deve estourar em ${viewport.width}px`);
+      assert.equal(audit.titleAfterSidebar, true, `cabeçalho da aba ${tab} não pode ficar sob a lateral`);
+      assert.ok(audit.surfaceCount > 0, `aba ${tab} deve possuir ao menos um bloco visual`);
+      assert.deepEqual(audit.invalidSurfaces, [], `blocos fora do padrão em ${tab}/${viewport.width}px`);
+      assert.deepEqual(audit.outOfBoundsActions, [], `ações fora dos blocos em ${tab}/${viewport.width}px`);
+      if (viewport.mobile && tab === 'transactions') {
+        assert.ok(audit.filtersHeight > 0 && audit.filtersHeight < 360, `filtros mobile devem ser compactos: ${audit.filtersHeight}px`);
+      }
+    }
+  }
+  assert.deepEqual(runtimeErrors, []);
+});
+
 test('design sólido permanece legível nos temas escuro e claro', async () => {
   await openViewport({ width: 390, height: 844, mobile: true });
 
@@ -538,19 +610,57 @@ test('design sólido permanece legível nos temas escuro e claro', async () => {
   assert.deepEqual(runtimeErrors, []);
 });
 
+test('trocar de conta limpa dados visíveis e formulários e restaura apenas a conta selecionada', async () => {
+  await openViewport({ width: 390, height: 844, mobile: true });
+  const result = await cdp.evaluate(`(() => {
+    const sync = window.financeSync;
+    const state = window.financialState;
+    const app = window.app;
+    sync.changeUser({ id: 'qa-account-a', email: 'a@example.test' });
+    state.addTransaction({ description: 'Privado da conta A', amount: 23, type: 'expense' });
+    clearTimeout(sync._pushTimer);
+    app.renderAll();
+    app.openNewTxModal('expense');
+    document.getElementById('tx-desc-input').value = 'Rascunho privado A';
+    document.getElementById('due-panel-body').textContent = 'Lembrete privado A';
+    sync.changeUser({ id: 'qa-account-b', email: 'b@example.test' });
+    const isolated = state.data.transactions.length === 0;
+    const closed = !document.querySelector('.modal-backdrop.active');
+    const cleared = document.getElementById('tx-desc-input').value === '';
+    const noPrivateText = !document.body.textContent.includes('Privado da conta A')
+      && !document.body.textContent.includes('Lembrete privado A');
+    sync.changeUser({ id: 'qa-account-a', email: 'a@example.test' });
+    const restored = state.data.transactions[0].description === 'Privado da conta A';
+    sync.changeUser(null);
+    return { isolated, closed, cleared, noPrivateText, restored };
+  })()`);
+  assert.deepEqual(result, { isolated: true, closed: true, cleared: true, noPrivateText: true, restored: true });
+  assert.deepEqual(runtimeErrors, []);
+});
+
 test('gera capturas de QA quando solicitado', { skip: !process.env.FINANZEN_SCREENSHOT_DIR }, async () => {
   const directory = process.env.FINANZEN_SCREENSHOT_DIR;
   fs.mkdirSync(directory, { recursive: true });
+  const tabs = ['dashboard', 'transactions', 'cards', 'budgets', 'goals', 'reports', 'settings'];
 
   await openViewport({ width: 390, height: 844, mobile: true });
-  let capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-  fs.writeFileSync(path.join(directory, 'finanzen-mobile-cdp.png'), Buffer.from(capture.data, 'base64'));
+  for (const tab of tabs) {
+    await cdp.evaluate(`document.querySelector('.nav-item[data-tab="${tab}"]').click()`);
+    await delay(180);
+    const capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+    fs.writeFileSync(path.join(directory, `finanzen-mobile-${tab}.png`), Buffer.from(capture.data, 'base64'));
+  }
 
+  await cdp.evaluate(`document.querySelector('.nav-item[data-tab="dashboard"]').click()`);
   await tap('#period-selector-btn');
-  capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+  let capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
   fs.writeFileSync(path.join(directory, 'finanzen-mobile-period-cdp.png'), Buffer.from(capture.data, 'base64'));
 
   await openViewport({ width: 1440, height: 900, mobile: false });
-  capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-  fs.writeFileSync(path.join(directory, 'finanzen-desktop-cdp.png'), Buffer.from(capture.data, 'base64'));
+  for (const tab of tabs) {
+    await cdp.evaluate(`document.querySelector('.nav-item[data-tab="${tab}"]').click()`);
+    await delay(180);
+    capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+    fs.writeFileSync(path.join(directory, `finanzen-desktop-${tab}.png`), Buffer.from(capture.data, 'base64'));
+  }
 });

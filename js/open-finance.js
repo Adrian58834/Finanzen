@@ -12,6 +12,7 @@
     status: 'idle', // idle | loading | ready | error
     lastError: null,
     _refreshPromise: null,
+    _generation: 0,
 
     isEnabled() {
       return config.enabled === true && Boolean(config.provider);
@@ -42,6 +43,9 @@
     },
 
     async onAuthChanged() {
+      this._generation += 1;
+      this._refreshPromise = null;
+      this.connections = [];
       if (!this.user()) {
         this.connections = [];
         this.status = 'idle';
@@ -63,6 +67,7 @@
       }
 
       if (this._refreshPromise) return this._refreshPromise;
+      const generation = this._generation;
       this.status = 'loading';
       this.lastError = null;
       this.render();
@@ -72,6 +77,8 @@
           .from('open_finance_connections')
           .select('id, provider, institution_id, institution_name, institution_logo_url, status, consent_expires_at, last_synced_at, last_error_message, created_at')
           .order('created_at', { ascending: false });
+
+        if (generation !== this._generation) return { error: 'A sessão mudou.' };
 
         if (error) {
           this.status = 'error';
@@ -89,7 +96,7 @@
       try {
         return await this._refreshPromise;
       } finally {
-        this._refreshPromise = null;
+        if (generation === this._generation) this._refreshPromise = null;
       }
     },
 
@@ -105,6 +112,7 @@
           : 'Entre na sincronização em nuvem para continuar.' };
       }
 
+      const generation = this._generation;
       this.status = 'loading';
       this.lastError = null;
       this.render();
@@ -112,6 +120,8 @@
       const { data, error } = await this.client().functions.invoke(this.functionName(action), {
         body: body || {}
       });
+
+      if (generation !== this._generation) return { error: 'A sessão mudou.' };
 
       if (error || (data && data.error)) {
         const message = (data && (data.message || data.error)) || (error && error.message) || 'Falha na operação de Open Finance.';

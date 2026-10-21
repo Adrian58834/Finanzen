@@ -2,6 +2,8 @@
 -- Rode este SQL no "SQL Editor" do seu projeto Supabase.
 -- Depois copie a Project URL e a chave "anon public" para js/sync-config.js.
 
+begin;
+
 create table if not exists public.finanzen_data (
   user_id    uuid primary key references auth.users(id) on delete cascade,
   data       jsonb not null default '{}'::jsonb,
@@ -9,7 +11,7 @@ create table if not exists public.finanzen_data (
   updated_at timestamptz not null default now()
 );
 
--- Atualiza updated_at a cada gravação (usado no last-write-wins)
+-- Atualiza updated_at para auditoria; conflitos são controlados pela coluna revision.
 create or replace function public.set_updated_at()
 returns trigger as $$
 begin
@@ -91,3 +93,54 @@ drop trigger if exists trg_archive_finanzen_data on public.finanzen_data;
 create trigger trg_archive_finanzen_data
   before update on public.finanzen_data
   for each row execute function public.archive_finanzen_data();
+
+-- Optimistic concurrency: all new writes go through this authenticated RPC.
+alter table public.finanzen_data add column if not exists revision bigint not null default 1;
+
+create or replace function public.finanzen_compare_and_set(
+  expected_user_id uuid, expected_revision bigint, next_data jsonb, next_settings jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  owner_id uuid := auth.uid();
+  current_row public.finanzen_data%rowtype;
+begin
+  if owner_id is null or owner_id is distinct from expected_user_id then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+  if jsonb_typeof(next_data) is distinct from 'object'
+     or jsonb_typeof(next_settings) is distinct from 'object' then
+    raise exception 'Invalid document';
+  end if;
+  -- Covers simultaneous first inserts as well as updates for this user.
+  perform pg_advisory_xact_lock(hashtextextended(owner_id::text, 0));
+  select * into current_row from public.finanzen_data where user_id = owner_id for update;
+  if found then
+    if expected_revision is distinct from current_row.revision then
+      return jsonb_build_object('conflict', true);
+    end if;
+    update public.finanzen_data
+      set data = next_data, settings = next_settings, revision = revision + 1
+      where user_id = owner_id returning * into current_row;
+  else
+    if expected_revision is not null then
+      return jsonb_build_object('conflict', true);
+    end if;
+    insert into public.finanzen_data(user_id, data, settings)
+      values(owner_id, next_data, next_settings) returning * into current_row;
+  end if;
+  return jsonb_build_object('conflict', false, 'row',
+    jsonb_build_object('updated_at', current_row.updated_at, 'revision', current_row.revision));
+end;
+$$;
+
+revoke all on function public.finanzen_compare_and_set(uuid, bigint, jsonb, jsonb) from public, anon;
+grant execute on function public.finanzen_compare_and_set(uuid, bigint, jsonb, jsonb) to authenticated;
+-- Old app versions fail safely instead of bypassing the revision check.
+drop policy if exists "finanzen_insert_own" on public.finanzen_data;
+drop policy if exists "finanzen_update_own" on public.finanzen_data;
+
+commit;

@@ -28,8 +28,8 @@ class MemoryStorage {
 // Cliente Supabase simulado: guarda as linhas em um Map (user_id -> row).
 function makeFakeSupabase(initialRows) {
   const rows = new Map();
-  const state = { createClientCalls: 0, serverUpdatedAt: null };
-  (initialRows || []).forEach(row => rows.set(row.user_id, { ...row }));
+  const state = { createClientCalls: 0, serverUpdatedAt: null, beforeWrite: null, beforeRead: null, rpcCalls: 0 };
+  (initialRows || []).forEach(row => rows.set(row.user_id, { revision: 1, ...row }));
 
   const supabase = {
     createClient() {
@@ -69,6 +69,19 @@ function makeFakeSupabase(initialRows) {
 
       const client = {
         auth,
+        async rpc(name, args) {
+          state.rpcCalls += 1;
+          if (state.beforeWrite) await state.beforeWrite(args);
+          const uid = auth._session ? auth._session.user.id : args.expected_user_id;
+          if (uid !== args.expected_user_id) return { error: { message: 'Authentication required' } };
+          const old = rows.get(uid);
+          if ((old ? old.revision : null) !== args.expected_revision) return { data: { conflict: true }, error: null };
+          const row = { data: JSON.parse(JSON.stringify(args.next_data)), settings: { ...args.next_settings },
+            revision: old ? old.revision + 1 : 1,
+            updated_at: state.serverUpdatedAt || new Date().toISOString() };
+          rows.set(uid, row);
+          return { data: { conflict: false, row: { updated_at: row.updated_at, revision: row.revision } }, error: null };
+        },
         from() {
           return {
             upsert(payload) {
@@ -86,9 +99,11 @@ function makeFakeSupabase(initialRows) {
                   q._uid = val;
                   return q;
                 },
-                maybeSingle() {
+                async maybeSingle() {
                   const row = rows.get(q._uid);
-                  return Promise.resolve({ data: row ? { ...row } : null, error: null });
+                  const snapshot = row ? JSON.parse(JSON.stringify(row)) : null;
+                  if (state.beforeRead) await state.beforeRead(q._uid);
+                  return { data: snapshot, error: null };
                 }
               };
               return q;

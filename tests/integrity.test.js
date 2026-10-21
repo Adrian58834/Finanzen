@@ -62,6 +62,7 @@ test('versão do app e cache offline permanecem sincronizados', () => {
     assert.ok(html.includes(`${asset}?v=${version}`), `versão ausente no HTML para ${asset}`);
     assert.ok(serviceWorker.includes(`./${asset}?v=${version}`), `versão ausente no cache para ${asset}`);
   }
+  assert.ok(serviceWorker.includes("key.startsWith('finanzen-v')"), 'limpeza do cache deve afetar apenas caches do FinanZen');
 });
 
 test('sintaxe válida em todos os JS da aplicação', () => {
@@ -148,6 +149,24 @@ test('navegação mobile mantém cinco ações e acesso a todas as sete áreas',
   }
   assert.ok(html.includes('id="mobile-more-btn"'));
   assert.ok(html.includes('id="mobile-more-menu"'));
+});
+
+test('todas as abas usam o sistema visual unificado', () => {
+  const html = read('index.html');
+  const css = read('css/style.css');
+  const js = read('js/app.js');
+
+  assert.ok(css.includes('FINANZEN UI SYSTEM'), 'falta a camada final do sistema visual');
+  assert.ok(css.includes('.tab-content.active'), 'falta o ritmo de layout compartilhado entre abas');
+  assert.ok(css.includes('.tab-header-card > div'), 'falta a estrutura responsiva dos cabeçalhos de aba');
+  assert.ok(css.includes('.filter-actions'), 'falta o padrão de ações dos filtros');
+
+  for (const className of ['tab-intro-title', 'tab-intro-description', 'invoice-kpi-card', 'financial-tip']) {
+    assert.ok(html.includes(className), `falta o componente visual ${className}`);
+  }
+  for (const className of ['budget-card-actions', 'goal-card-actions', 'report-list-row', 'credit-card-actions']) {
+    assert.ok(js.includes(className), `falta o componente dinâmico ${className}`);
+  }
 });
 
 test('configurações usam uma central de blocos que abre um módulo por vez', () => {

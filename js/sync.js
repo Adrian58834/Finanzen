@@ -21,6 +21,61 @@
     lastError: null,
     _pushTimer: null,
     _ready: false,
+    _generation: 0,
+    _queue: Promise.resolve(),
+
+    metaKey() {
+      return this.user ? `${META_KEY}:${this.user.id}` : META_KEY;
+    },
+
+    changeUser(user) {
+      if ((this.user && this.user.id) === (user && user.id)) {
+        this.user = user || null;
+        return;
+      }
+      clearTimeout(this._pushTimer);
+      this._pushTimer = null;
+      this._generation += 1;
+      this._queue = Promise.resolve();
+      this.user = user || null;
+      window.financialState.switchScope(user && user.id);
+      this.lastSyncedAt = this.loadMeta().lastSyncedAt || null;
+      this.notifyOpenFinance();
+      if (window.app) {
+        if (window.app.onAccountChanged) window.app.onAccountChanged();
+        else if (window.app.renderAll) window.app.renderAll();
+      }
+    },
+
+    context() {
+      return { id: this.user && this.user.id, generation: this._generation };
+    },
+
+    assertContext(context) {
+      if (!context.id || !this.user || context.id !== this.user.id || context.generation !== this._generation) {
+        throw new Error('A sessão mudou. A sincronização anterior foi cancelada.');
+      }
+      if (window.financialState._loadError) throw new Error(window.financialState._loadError);
+    },
+
+    enqueue(method, options) {
+      const context = this.context();
+      const task = this._queue.then(async () => {
+        try {
+          this.assertContext(context);
+          return await this[method](options || {}, context);
+        } catch (error) {
+          if (context.generation === this._generation && context.id === (this.user && this.user.id)) this.setError(error.message);
+          return { error: error.message };
+        }
+      });
+      this._queue = task.then(() => undefined, () => undefined);
+      return task;
+    },
+
+    push(options) { return this.enqueue('_push', options); },
+    pull(options) { return this.enqueue('_pull', options); },
+    pullIfNewer() { return this.enqueue('_pullIfNewer'); },
 
     // ---- Configuração ----
     isConfigured() {
@@ -29,7 +84,7 @@
 
     loadMeta() {
       try {
-        return JSON.parse(localStorage.getItem(META_KEY) || '{}') || {};
+        return JSON.parse(localStorage.getItem(this.metaKey()) || '{}') || {};
       } catch (e) {
         return {};
       }
@@ -37,7 +92,7 @@
 
     saveMeta(partial) {
       const meta = { ...this.loadMeta(), ...partial };
-      localStorage.setItem(META_KEY, JSON.stringify(meta));
+      localStorage.setItem(this.metaKey(), JSON.stringify(meta));
     },
 
     // ---- Inicialização ----
@@ -62,19 +117,23 @@
       }
 
       this.client.auth.onAuthStateChange((event, session) => {
-        this.user = session ? session.user : null;
-        this.notifyOpenFinance();
+        this.changeUser(session ? session.user : null);
         if (event === 'SIGNED_IN' && this.user) {
           this.status = 'syncing';
           this.render();
-          this.pullIfNewer().then(() => this.render());
+          // Supabase auth callbacks must finish before starting API requests.
+          const context = this.context();
+          setTimeout(() => {
+            if (context.generation === this._generation) this.pullIfNewer().then(() => this.render());
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
           this.setStatus('signed-out');
         }
       });
 
+      const generation = this._generation;
       const { data } = await this.client.auth.getSession();
-      this.user = data.session ? data.session.user : null;
+      if (generation === this._generation) this.changeUser(data.session ? data.session.user : null);
       this.status = this.user ? 'synced' : 'signed-out';
       this.render();
       this.notifyOpenFinance();
@@ -142,6 +201,7 @@
       if (typeof password !== 'string' || password.length < 6) return { error: 'Senha inválida.' };
 
       try {
+        const context = this.context();
         const verifier = supabase.createClient(config.url, config.anonKey, {
           auth: {
             persistSession: false,
@@ -155,6 +215,7 @@
         });
         if (error) return { error: 'Senha inválida.' };
         await verifier.auth.signOut();
+        this.assertContext(context);
         return { ok: true };
       } catch (error) {
         return { error: 'Não foi possível validar a senha.' };
@@ -163,109 +224,97 @@
 
     async signOut() {
       if (!this.client) return;
-      await this.client.auth.signOut();
-      this.user = null;
-      this.setStatus('signed-out');
-    },
-
-    // ---- Push / Pull ----
-    payload() {
-      const state = window.financialState;
-      return {
-        user_id: this.user.id,
-        data: state.data,
-        settings: state.settings,
-        updated_at: new Date().toISOString()
-      };
-    },
-
-    async push(options = {}) {
-      if (!this.user) return { error: 'Não autenticado.' };
-      this.setStatus('syncing');
-      const state = window.financialState;
-
-      if (state && typeof state.createRecoverySnapshot === 'function') {
-        state.createRecoverySnapshot('Antes de enviar dados para a nuvem', state.data, state.settings, { source: 'sync' });
-      }
-
-      if (!options.replaceRemote && !options.skipRemoteMerge) {
-        const remoteResult = await this.fetchRemote();
-        if (remoteResult.error) return { error: remoteResult.error };
-        const remoteRow = remoteResult.row;
-        if (remoteRow && remoteRow.data) {
-          const normalizedRemote = state.normalizeData(remoteRow.data);
-          if (!normalizedRemote) {
-            this.setError('A cópia da nuvem é inválida e não foi sobrescrita.');
-            return { error: this.lastError };
-          }
-
-          state.createRecoverySnapshot('Cópia da nuvem antes da sincronização', normalizedRemote, remoteRow.settings || {}, { source: 'cloud' });
-          const remoteTime = new Date(remoteRow.updated_at || 0).getTime();
-          const preferLocal = options.preferLocal === true || this.localChangeTime() >= remoteTime;
-          const merged = state.mergeData(normalizedRemote, state.data, preferLocal);
-
-          state._suspendSync = true;
-          try {
-            state.data = merged;
-            if (!preferLocal && remoteRow.settings) state.settings = state.normalizeSettings(remoteRow.settings);
-            localStorage.setItem(state.STORAGE_KEY, JSON.stringify(state.data));
-            localStorage.setItem(state.SETTINGS_KEY, JSON.stringify(state.settings));
-          } finally {
-            state._suspendSync = false;
-          }
-        }
-      } else if (options.replaceRemote) {
-        const remoteResult = await this.fetchRemote();
-        if (remoteResult.error) return { error: remoteResult.error };
-        if (remoteResult.row && remoteResult.row.data && state && typeof state.createRecoverySnapshot === 'function') {
-          state.createRecoverySnapshot('Cópia da nuvem antes da substituição', remoteResult.row.data, remoteResult.row.settings || {}, { source: 'cloud' });
-        }
-      }
-
-      const payload = this.payload();
-      const { error } = await this.client
-        .from(this.table())
-        .upsert(payload, { onConflict: 'user_id' });
-
+      const context = this.context();
+      const { error } = await this.client.auth.signOut();
       if (error) { this.setError(error.message); return { error: error.message }; }
-
-      // Usa o timestamp persistido pelo servidor. Comparar horário do servidor
-      // com o relógio local pode fazer um aparelho adiantado ignorar mudanças.
-      const { data: savedRow } = await this.client
-        .from(this.table())
-        .select('updated_at')
-        .eq('user_id', this.user.id)
-        .maybeSingle();
-      this.lastSyncedAt = (savedRow && savedRow.updated_at) || payload.updated_at;
-      this.saveMeta({
-        lastSyncedAt: this.lastSyncedAt,
-        lastLocalChangeAt: this.localChangeTime()
-      });
-      this.setStatus('synced');
+      if (context.generation === this._generation) this.changeUser(null);
+      if (!this.user) this.setStatus('signed-out');
       return { ok: true };
     },
 
-    async fetchRemote() {
-      if (!this.user) return { error: 'Não autenticado.' };
+    // ---- Push / Pull ----
+    async _push(options, context) {
+      this.assertContext(context);
+      if (this.table() !== 'finanzen_data') throw new Error('A sincronização segura requer a tabela finanzen_data.');
+      this.setStatus('syncing');
+      const state = window.financialState;
+      state.persist(state.data, state.settings, false);
+      state.createRecoverySnapshot('Antes de enviar dados para a nuvem');
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { row, error } = await this.fetchRemote(context);
+        this.assertContext(context);
+        if (error) return { error };
+        let data = state.data;
+        let settings = state.settings;
+        if (row && options.replaceRemote) {
+          state.createRecoverySnapshot('Cópia da nuvem antes da substituição', row.data, row.settings, { source: 'cloud' });
+        }
+        if (row && !options.replaceRemote) {
+          const remote = state.normalizeData(row.data);
+          if (!remote) throw new Error('A cópia da nuvem é inválida e não foi sobrescrita.');
+          state.createRecoverySnapshot('Cópia da nuvem antes da sincronização', remote, row.settings, { source: 'cloud' });
+          const meta = this.loadMeta();
+          const preferLocal = options.preferLocal === true || state.changeVersion > Number(meta.lastLocalChangeAt || 0);
+          data = preferLocal ? state.mergeSyncData(meta.baseData, remote, state.data) : state.mergeData(remote, state.data, false);
+          if (!preferLocal || (meta.baseSettings && JSON.stringify(meta.baseSettings) === JSON.stringify(state.settings))) {
+            settings = state.normalizeSettings(row.settings);
+          }
+        }
+        const sentChange = state.changeVersion;
+        const sentLocal = JSON.parse(JSON.stringify(state.data));
+        const sentSettings = JSON.stringify(state.settings);
+        const payload = JSON.parse(JSON.stringify({ data, settings }));
+        const result = await this.client.rpc('finanzen_compare_and_set', {
+          expected_user_id: context.id,
+          expected_revision: row ? row.revision : null,
+          next_data: payload.data,
+          next_settings: payload.settings
+        });
+        this.assertContext(context);
+        if (result.error) throw new Error(result.error.message + ' Verifique se supabase/schema.sql está atualizado.');
+        if (!result.data) throw new Error('O servidor não confirmou a gravação.');
+        if (result.data.conflict) continue;
+        const saved = result.data.row;
+        if (!saved || !saved.updated_at) throw new Error('O servidor não confirmou a gravação.');
+        const changed = state.changeVersion !== sentChange;
+        const merged = changed ? state.mergeSyncData(sentLocal, payload.data, state.data) : payload.data;
+        state.persist(merged, changed && JSON.stringify(state.settings) !== sentSettings ? state.settings : payload.settings, false);
+        this.saveMeta({ lastSyncedAt: saved.updated_at, revision: saved.revision, lastLocalChangeAt: sentChange,
+          baseData: payload.data, baseSettings: payload.settings });
+        this.lastSyncedAt = saved.updated_at;
+        if (window.app && window.app.renderAll) window.app.renderAll();
+        if (changed) this.schedulePush();
+        this.setStatus(changed ? 'syncing' : 'synced');
+        return { ok: true };
+      }
+      throw new Error('Outro aparelho está alterando os dados. Tente sincronizar novamente. Seus dados locais foram preservados.');
+    },
+
+    async fetchRemote(context = this.context()) {
+      this.assertContext(context);
       const { data, error } = await this.client
         .from(this.table())
-        .select('data, settings, updated_at')
-        .eq('user_id', this.user.id)
+        .select('data, settings, updated_at, revision')
+        .eq('user_id', context.id)
         .maybeSingle();
-
+      this.assertContext(context);
       if (error) { this.setError(error.message); return { error: error.message }; }
       return { row: data || null };
     },
 
-    async importCloudHistoryToRecovery() {
+    importCloudHistoryToRecovery() { return this.enqueue('_importCloudHistoryToRecovery'); },
+
+    async _importCloudHistoryToRecovery(options, context) {
       if (!this.user) return { error: 'Entre na sua conta para acessar o histórico da nuvem.' };
       const state = window.financialState;
       const { data, error } = await this.client
         .from('finanzen_data_history')
         .select('history_id, data, settings, source_updated_at, archived_at')
-        .eq('user_id', this.user.id)
+        .eq('user_id', context.id)
         .order('archived_at', { ascending: false })
         .limit(8);
+
+      this.assertContext(context);
 
       if (error) {
         return { error: 'Histórico indisponível. Execute novamente supabase/schema.sql no SQL Editor.' };
@@ -283,81 +332,48 @@
       return { ok: true, count: rows.length };
     },
 
-    async pull(options = {}) {
-      const { row, error } = await this.fetchRemote();
+    async _pull(options, context) {
+      const { row, error } = await this.fetchRemote(context);
+      this.assertContext(context);
       if (error) return { error };
       if (!row || !row.data) return { ok: true, empty: true };
-
       const state = window.financialState;
       const normalized = state.normalizeData(row.data);
-      if (!normalized) {
-        this.setError('Dados inválidos recebidos da nuvem.');
-        return { error: this.lastError };
-      }
-
-      if (typeof state.createRecoverySnapshot === 'function') {
-        state.createRecoverySnapshot('Cópia local antes de receber dados da nuvem', state.data, state.settings, { source: 'sync' });
-        state.createRecoverySnapshot('Cópia recebida da nuvem', normalized, row.settings || {}, { source: 'cloud' });
-      }
-
-      const merged = options.replaceLocal
-        ? normalized
-        : state.mergeData(state.data, normalized, options.preferLocal !== true);
-      state._suspendSync = true;
-      try {
-        state.data = merged;
-        if (row.settings && options.preferLocal !== true) state.settings = state.normalizeSettings(row.settings);
-        localStorage.setItem(state.STORAGE_KEY, JSON.stringify(state.data));
-        localStorage.setItem(state.SETTINGS_KEY, JSON.stringify(state.settings));
-      } finally {
-        state._suspendSync = false;
-      }
-
-      this.lastSyncedAt = row.updated_at || new Date().toISOString();
-      this.saveMeta({
-        lastSyncedAt: this.lastSyncedAt,
-        lastLocalChangeAt: this.localChangeTime()
-      });
-      this.setStatus('synced');
-      if (window.app && typeof window.app.renderAll === 'function') window.app.renderAll();
+      if (!normalized) throw new Error('Dados inválidos recebidos da nuvem.');
+      state.createRecoverySnapshot('Cópia local antes de receber dados da nuvem');
+      state.createRecoverySnapshot('Cópia recebida da nuvem', normalized, row.settings || {}, { source: 'cloud' });
+      const localChange = state.changeVersion;
+      const pending = localChange > Number(this.loadMeta().lastLocalChangeAt || 0);
+      const preferLocal = options.preferLocal === true || pending;
+      const meta = this.loadMeta();
+      const merged = options.replaceLocal ? normalized : (preferLocal
+        ? state.mergeSyncData(meta.baseData, normalized, state.data) : state.mergeData(state.data, normalized, true));
+      const keepSettings = !options.replaceLocal && preferLocal && (!meta.baseSettings || JSON.stringify(meta.baseSettings) !== JSON.stringify(state.settings));
+      state.persist(merged, keepSettings ? state.settings : state.normalizeSettings(row.settings), false);
+      this.saveMeta({ lastSyncedAt: row.updated_at, revision: row.revision, baseData: normalized, baseSettings: state.normalizeSettings(row.settings),
+        lastLocalChangeAt: pending && !options.replaceLocal ? Number(this.loadMeta().lastLocalChangeAt || 0) : localChange });
+      this.lastSyncedAt = row.updated_at;
+      this.setStatus(pending && !options.replaceLocal ? 'syncing' : 'synced');
+      if (pending && !options.replaceLocal) this.schedulePush();
+      if (window.app && window.app.renderAll) window.app.renderAll();
       return { ok: true };
     },
 
-    // Decide o que fazer no login: remoto mais novo baixa, senão envia
-    async pullIfNewer() {
-      const { row, error } = await this.fetchRemote();
+    async _pullIfNewer(options, context) {
+      const { row, error } = await this.fetchRemote(context);
+      this.assertContext(context);
       if (error) return { error };
-
-      if (!row || !row.data) return this.push();
-
       const meta = this.loadMeta();
-      const remoteTime = new Date(row.updated_at || 0).getTime();
-      const syncedTime = new Date(meta.lastSyncedAt || 0).getTime();
-      const lastRecordedLocalChange = parseInt(meta.lastLocalChangeAt || '0', 10) || 0;
-      const hasUnsyncedLocalChanges = this.localChangeTime() > lastRecordedLocalChange;
-
-      if (hasUnsyncedLocalChanges && remoteTime > syncedTime) {
-        const pullResult = await this.pull({ preferLocal: this.localChangeTime() >= remoteTime });
-        if (pullResult && pullResult.error) return pullResult;
-        return this.push({ skipRemoteMerge: true });
-      }
-      if (hasUnsyncedLocalChanges) return this.push({ preferLocal: true });
-      if (remoteTime > syncedTime) return this.pull();
-      if (remoteTime < syncedTime) return this.push({ preferLocal: true });
-
-      this.lastSyncedAt = row.updated_at || this.lastSyncedAt;
+      const pending = this.localChangeTime() > Number(meta.lastLocalChangeAt || 0);
+      if (!row || pending) return this._push({ preferLocal: pending }, context);
+      if (row.revision !== meta.revision || row.updated_at !== meta.lastSyncedAt) return this._pull({}, context);
+      this.lastSyncedAt = row.updated_at;
       this.setStatus('synced');
       return { ok: true, unchanged: true };
     },
 
     localChangeTime() {
-      const state = window.financialState;
-      const key = (state && state.LAST_CHANGE_KEY) || 'finanzen_last_local_change';
-      try {
-        return parseInt(localStorage.getItem(key) || '0', 10) || 0;
-      } catch (e) {
-        return 0;
-      }
+      return window.financialState.changeVersion || 0;
     },
 
     // Hora real da última alteração local (não apenas do último sync).

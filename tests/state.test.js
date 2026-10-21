@@ -6,6 +6,61 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const setup = require('./helpers/setup');
 
+test('falha de gravação reverte a memória e impede sucesso e notificação', () => {
+  const s = fresh();
+  s.saveData();
+  const before = JSON.stringify(s.data);
+  const persisted = setup.storage.getItem(s.STORAGE_KEY);
+  const original = setup.storage.setItem;
+  let notices = 0;
+  const notify = s.notifyDataChanged;
+  s.notifyDataChanged = () => { notices += 1; };
+  setup.storage.setItem = () => { throw new Error('QuotaExceededError'); };
+  try {
+    assert.throws(() => s.addTransaction({ description: 'Não salva', amount: 1, type: 'income' }), /Não foi possível salvar/);
+    assert.strictEqual(JSON.stringify(s.data), before);
+    assert.strictEqual(setup.storage.getItem(s.STORAGE_KEY), persisted);
+    assert.strictEqual(notices, 0);
+    assert.throws(() => s.saveSettings({ currency: 'USD' }), /Não foi possível salvar/);
+    assert.strictEqual(s.settings.currency, 'BRL');
+  } finally {
+    setup.storage.setItem = original;
+    s.notifyDataChanged = notify;
+  }
+});
+
+test('dados preferências e marcador pendente são gravados atomicamente', () => {
+  const s = fresh();
+  const original = setup.storage.setItem;
+  let writes = 0;
+  setup.storage.setItem = function(key, value) { writes += 1; return original.call(this, key, value); };
+  try { s.saveSettings({ currency: 'EUR' }); } finally { setup.storage.setItem = original; }
+  assert.strictEqual(writes, 1);
+  const reopened = new setup.FinancialState();
+  assert.strictEqual(reopened.settings.currency, 'EUR');
+  assert.strictEqual(reopened.changeVersion, s.changeVersion);
+  assert.deepStrictEqual(reopened.data, s.normalizeData(s.data));
+});
+
+test('aba com dados antigos não sobrescreve gravação já feita por outra aba', () => {
+  const first = fresh();
+  first.saveData();
+  const second = new setup.FinancialState();
+  first.addTransaction({ description: 'Outra aba', amount: 1, type: 'income' });
+  const saved = setup.storage.getItem(first.STORAGE_KEY);
+  assert.throws(() => second.addTransaction({ description: 'Desatualizada', amount: 2, type: 'income' }), /outra aba/);
+  assert.strictEqual(setup.storage.getItem(first.STORAGE_KEY), saved);
+});
+
+test('documento local corrompido é preservado e bloqueia sobrescrita', () => {
+  setup.storage.clear();
+  setup.storage.setItem(setup.STORAGE_KEY, '{corrompido');
+  const s = new setup.FinancialState();
+  assert.ok(s._loadError);
+  assert.throws(() => s.saveData(), /não puderam ser lidos/);
+  assert.strictEqual(setup.storage.getItem(setup.STORAGE_KEY), '{corrompido');
+});
+
 function pad(n) {
   return String(n).padStart(2, '0');
 }

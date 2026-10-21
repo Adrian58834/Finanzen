@@ -1,5 +1,19 @@
 # FinanZen - Guia detalhado: usar no PC e no celular
 
+> **Atualização 1.9.1:** execute o arquivo completo `supabase/schema.sql` no SQL Editor antes de publicar e atualize todos os aparelhos. A migração preserva dados e histórico, mas versões antigas deixam de poder gravar na nuvem. Consulte a seção de atualização no README para migrar dados locais para a conta correta.
+
+## Ordem segura para publicar a versão 1.9.1
+
+1. Em cada aparelho importante, exporte um backup JSON do espaço local e da conta usada.
+2. Evite novos lançamentos durante a atualização.
+3. No Supabase, execute o arquivo completo `supabase/schema.sql` e confirme **Success**.
+4. No GitHub, substitua o projeto completo, mantendo `index.html` na raiz.
+5. Aguarde o GitHub Pages concluir a publicação.
+6. Feche e reabra o aplicativo em todos os aparelhos; se necessário, recarregue duas vezes.
+7. Entre na conta correta, use **Sincronizar agora** e confira receitas, despesas e a data da última sincronização.
+
+> Entre os passos 3 e 6, aparelhos ainda na versão antiga podem mostrar erro de sincronização. Isso é esperado e evita gravações sem controle de revisão; os dados locais permanecem preservados.
+
 Este guia é para quem **nunca publicou um site**. São 4 partes:
 
 1. Colocar o app no GitHub
@@ -107,7 +121,7 @@ Troque `SEU-USUARIO` pelo seu nome de usuário do GitHub. Guarde essa URL:
 3. O app abrirá em uma janela própria e ganhará atalho no menu Iniciar.
 
 > O botão **Instalar app** também aparece dentro do app em
-> *Backup & Dados*, quando o navegador permite a instalação.
+> *Conta & Ajustes → Instalar aplicativo*, quando o navegador permite a instalação.
 
 Pronto! Agora o app funciona **offline** nos dois aparelhos (cada aparelho com
 seus próprios dados, por enquanto).
@@ -140,7 +154,8 @@ independente.
    gatilhos de proteção e as regras de segurança (RLS) foram criados.
 
 > Em projetos já existentes, execute novamente o arquivo completo ao atualizar
-> para a versão 1.6.3. O script preserva os dados atuais e adiciona o histórico.
+> para a versão 1.9.1, **antes de publicar os novos arquivos**. O script preserva
+> os dados e o histórico, adiciona revisões e bloqueia gravações diretas de versões antigas.
 
 ### 4.3 Copiar a URL e a chave do Supabase
 1. No menu da esquerda, clique na **engrenagem (Project Settings)**.
@@ -180,32 +195,32 @@ independente.
 
 ### 4.6 Conectar no primeiro aparelho (ex: PC)
 1. Abra o app (a URL publicada ou o app instalado).
-2. Vá em **Backup & Dados** → card **Sincronização em Nuvem**.
-3. Agora devem aparecer os campos de e-mail e senha.
-4. Digite seu e-mail e uma senha (mínimo 6 caracteres) e clique em **Criar conta**.
-5. Se pedir confirmação, confira seu e-mail e clique no link.
-6. Depois, clique em **Entrar**. O status deve ficar **Conectado**.
-7. Ao entrar, seus dados locais são **enviados** para a nuvem.
+2. Se você já possui lançamentos no espaço local, abra **Conta & Ajustes → Exportar backup** e baixe o JSON antes de entrar.
+3. Vá em **Conta & Ajustes → Conta e acesso**.
+4. Agora devem aparecer os campos de e-mail e senha.
+5. Digite seu e-mail e uma senha (mínimo 6 caracteres) e clique em **Criar conta**.
+6. Se pedir confirmação, confira seu e-mail e clique no link.
+7. Depois, clique em **Entrar**. O status deve ficar **Conectado**.
+8. A conta possui um espaço separado. Para levar os dados locais exportados, abra **Restaurar backup** e importe o JSON na conta correta.
 
 ### 4.7 Conectar no segundo aparelho (ex: celular)
 1. Abra o app no celular.
-2. **Backup & Dados → Sincronização em Nuvem**.
+2. Abra **Conta & Ajustes → Conta e acesso**.
 3. Informe **o mesmo e-mail e senha** e clique em **Entrar**.
-4. Como a nuvem tem os dados mais recentes, eles serão **baixados** para o
-   celular automaticamente.
+4. Os dados dessa conta serão sincronizados automaticamente com o celular.
 
 ### 4.8 Como a sincronização funciona no dia a dia
 - Toda alteração é enviada para a nuvem automaticamente (~1,5s depois).
-- Estratégia **last-write-wins**: o aparelho que salvou por último vence.
+- Cada envio confere a revisão do servidor. Se dois aparelhos alterarem dados,
+  o aplicativo relê, combina registros e tenta novamente sem apagar a cópia local.
 - Botões manuais no card de sincronização:
-  - **Sincronizar agora**: compara e decide (baixa se a nuvem for mais nova,
-    senão envia).
-  - **Enviar**: força o envio do aparelho para a nuvem.
-  - **Baixar**: força trazer a nuvem para este aparelho.
+  - **Sincronizar agora**: compara, combina e envia ou recebe o necessário.
+  - **Combinar e enviar**: mescla a nuvem com o aparelho e envia com revisão.
+  - **Trazer e combinar**: traz a nuvem sem descartar edições locais pendentes.
   - **Sair**: desconecta (os dados locais permanecem).
 
-> Dica: para evitar conflitos, edite um aparelho por vez. Se editar nos dois
-> sem sincronizar, o "mais recente" sobrescreve o outro.
+> Se dois aparelhos alterarem o mesmo registro, a edição local ainda pendente
+> tem prioridade; exclusões registradas prevalecem. O histórico mantém até 30 versões.
 
 ---
 
@@ -265,7 +280,7 @@ Se o upload pelo navegador der problema com muitos arquivos:
 
 ### (E) Meus dados sumiram
 - Cada aparelho guarda seus dados no navegador até você **Entrar** na conta.
-- Faça **Exportar JSON** periodicamente em *Backup & Dados* como cópia extra.
+- Faça **Conta & Ajustes → Exportar backup** periodicamente como cópia extra.
 
 ---
 

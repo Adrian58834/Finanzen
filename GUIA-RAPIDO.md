@@ -22,7 +22,7 @@
 ## 4. Sincronizar (opcional)
 1. supabase.com → **New project** (Região: São Paulo) → espere ~2 min
 2. **SQL Editor → New query** → cole `supabase/schema.sql` → **Run**
-   (execute novamente ao atualizar para a versão 1.6.3 para ativar o histórico)
+   (na versão 1.9.1, execute o SQL antes de publicar os novos arquivos)
 3. **Project Settings → API**: copie **Project URL** + chave **anon public**
 4. No GitHub, edite `js/sync-config.js`:
    ```js
@@ -35,8 +35,9 @@
    → **Commit changes**
 5. Supabase → **Authentication → Providers → Email** ligado
    (pode desligar *Confirm email* para testes)
-6. App → **Backup & Dados → Sincronização** → **Criar conta** (1º aparelho)
-   → **Entrar** com a mesma conta no 2º aparelho
+6. Se já houver dados locais, exporte o backup JSON antes de entrar.
+7. App → **Conta & Ajustes → Conta e acesso** → **Criar conta** (1º aparelho).
+   Entre, importe o backup na conta correta e use a mesma conta no 2º aparelho.
 
 ## Atualizar o app depois
 GitHub → edite/substitua o arquivo → **Commit changes** → espere ~1 min →
@@ -46,14 +47,15 @@ feche e reabra o app (recarregue 2x se necessário).
 - **404 no Pages**: `index.html` na raiz? Source = `main` / root? Espere mais.
 - **Não instala no celular**: use `https://` (GitHub Pages). iPhone = Safari.
 - **Sync não conecta**: confira URL/chave em `js/sync-config.js`; recarregue o app.
-- **Dados "sumidos"**: cada aparelho é independente até você **Entrar**. Use
-  **Exportar JSON** em *Backup & Dados* como cópia extra.
+- **Dados "sumidos"**: sair mostra o espaço local; entrar mostra o espaço da
+  conta. Use **Conta & Ajustes → Exportar backup** antes de migrar os dados.
 
 ## Checklist
 - [ ] Repo público com `index.html` na raiz
 - [ ] Pages ativo (branch `main` / root)
 - [ ] App instalado no PC e no celular
-- [ ] `supabase/schema.sql` executado
+- [ ] Backup JSON exportado antes da atualização
+- [ ] `supabase/schema.sql` 1.9.1 executado antes do upload
 - [ ] `js/sync-config.js` preenchido
 - [ ] Conta criada e login no 2º aparelho
 

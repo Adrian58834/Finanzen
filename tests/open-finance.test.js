@@ -67,3 +67,19 @@ test('schema Open Finance mantém dados normalizados e RLS habilitado', () => {
   }
   assert.doesNotMatch(sql, /client_secret|access_token|refresh_token/i, 'tokens não devem existir nas tabelas públicas');
 });
+
+test('resposta antiga de Open Finance é descartada após sair da conta', async () => {
+  const { service, window } = createEnv({ enabled: true, provider: 'sandbox' });
+  let release;
+  window.financeSync.user = { id: 'A' };
+  window.financeSync.client = { from() { return { select() { return { order() {
+    return new Promise(resolve => { release = resolve; });
+  } }; } }; } };
+  const pending = service.refresh();
+  window.financeSync.user = null;
+  await service.onAuthChanged();
+  release({ data: [{ id: 'conexao-privada-A' }], error: null });
+  assert.ok((await pending).error);
+  assert.strictEqual(service.connections.length, 0);
+  assert.strictEqual(service.status, 'idle');
+});

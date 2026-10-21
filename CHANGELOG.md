@@ -2,6 +2,32 @@
 
 Este arquivo registra as mudanças relevantes de cada versão do FinanZen.
 
+## 1.9.1 — 21/10/2026
+
+- Dados, preferências, recuperação e metadados locais separados por usuário; dados anteriores preservados no espaço local, com migração por backup.
+- Gravação local atômica com reversão e aviso em caso de falha; proteção contra documentos ilegíveis e abas desatualizadas.
+- Sincronização serializada com revisão atômica no Supabase, novas tentativas em conflitos e combinação baseada na última versão sincronizada.
+- Edições durante requisições continuam pendentes. Respostas de sessões antigas são descartadas, inclusive no Open Finance e em importações de arquivos.
+- O service worker agora remove somente caches antigos do próprio FinanZen, sem interferir em outros projetos publicados no mesmo domínio.
+- Guias de publicação e migração foram alinhados ao novo fluxo de Conta & Ajustes e à sincronização por revisão.
+- Atualização obrigatória: executar novamente `supabase/schema.sql` e atualizar os aparelhos. Clientes antigos não podem gravar diretamente após essa migração.
+
+## 1.9.0 — 21/10/2026
+
+### Sistema visual unificado
+
+- Todas as sete abas agora compartilham o mesmo padrão de blocos, espaçamentos, títulos, bordas, botões, formulários e estados vazios.
+- Painel, Transações, Cartões, Orçamentos, Metas, Relatórios e Conta & Ajustes foram revisados no desktop e no celular.
+- Cartões de crédito, faturas, orçamentos, metas, listas dos relatórios e dicas financeiras receberam componentes visuais próprios e consistentes.
+- Removidas animações antigas que deixavam alguns blocos temporariamente transparentes durante a navegação.
+- Filtros de Transações foram reorganizados no celular, sem espaços vazios excessivos.
+- Botões de Cartões, Orçamentos e Metas agora permanecem totalmente dentro de seus blocos em telas pequenas.
+
+### Qualidade
+
+- A suíte visual percorre automaticamente todas as sete abas em 390 e 1440 px.
+- Os testes verificam estouro horizontal, posição do cabeçalho, superfícies sólidas, opacidade, raios, filtros compactos e ações contidas nos blocos.
+
 ## 1.8.1 — 21/10/2026
 
 ### Seletor de período mobile

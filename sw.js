@@ -1,5 +1,5 @@
 /* FinanZen - Service Worker (PWA offline) */
-const VERSION = 'finanzen-v1.8.1';
+const VERSION = 'finanzen-v1.9.1';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -7,13 +7,13 @@ const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './css/style.css?v=1.8.1',
-  './js/state.js?v=1.8.1',
-  './js/charts.js?v=1.8.1',
-  './js/app.js?v=1.8.1',
-  './js/sync.js?v=1.8.1',
-  './js/open-finance.js?v=1.8.1',
-  './js/sync-config.js?v=1.8.1',
+  './css/style.css?v=1.9.1',
+  './js/state.js?v=1.9.1',
+  './js/charts.js?v=1.9.1',
+  './js/app.js?v=1.9.1',
+  './js/sync.js?v=1.9.1',
+  './js/open-finance.js?v=1.9.1',
+  './js/sync-config.js?v=1.9.1',
   './js/vendor/supabase.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -49,7 +49,7 @@ self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys
-      .filter(key => !key.startsWith(VERSION))
+      .filter(key => key.startsWith('finanzen-v') && !key.startsWith(VERSION))
       .map(key => caches.delete(key)));
     await self.clients.claim();
   })());
