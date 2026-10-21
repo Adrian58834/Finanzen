@@ -320,6 +320,10 @@ body.light-theme .top-header {
 
 .mobile-menu-btn {
   display: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
   background: none;
   border: none;
   color: var(--text-primary);
@@ -768,6 +772,11 @@ body.period-menu-open .period-selector-menu {
   align-items: stretch;
 }
 
+.charts-grid > *,
+.dashboard-bottom-grid > * {
+  min-width: 0;
+}
+
 @media (max-width: 1024px) {
   .charts-grid {
     grid-template-columns: 1fr;
@@ -820,6 +829,12 @@ body.period-menu-open .period-selector-menu {
   flex: 1;
   min-height: 280px;
   width: 100%;
+}
+
+.chart-canvas-container canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* Transações Recentes & Lista */
@@ -2485,10 +2500,8 @@ body.light-theme .top-header {
 .quick-create.open .quick-create-chevron { transform: rotate(180deg); }
 
 .quick-create-menu {
-  position: absolute;
-  z-index: 350;
-  top: calc(100% + 10px);
-  right: 0;
+  position: fixed;
+  z-index: 999;
   width: 420px;
   display: none;
   overflow: hidden;
@@ -2498,14 +2511,26 @@ body.light-theme .top-header {
   box-shadow: 0 22px 55px -24px rgba(0, 0, 0, 0.65);
 }
 
-.quick-create.open .quick-create-menu {
+.quick-create-menu.open {
   display: block;
   animation: quickCreateIn 180ms ease-out both;
 }
 
+.quick-create-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+  display: none;
+  background: transparent;
+}
+
+.quick-create-veil.active {
+  display: block;
+}
+
 @keyframes quickCreateIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(-6px) scale(0.99); }
+  to { transform: translateY(0) scale(1); }
 }
 
 .quick-create-menu-head {
@@ -2837,7 +2862,7 @@ body.light-theme .tab-header-card {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quick-create.open .quick-create-menu { animation: none; }
+  .quick-create-menu.open { animation: none; }
 }
 
 /* ================= SINCRONIZAÇÃO EM NUVEM ================= */
@@ -3336,15 +3361,20 @@ body.light-theme .tab-header-card {
   background: var(--bg-secondary);
   border-left: 1px solid var(--border-color);
   box-shadow: -20px 0 60px -30px rgba(0, 0, 0, 0.6);
-  transform: translateX(100%);
-  transition: transform 0.28s ease;
+  transform: none;
+  clip-path: inset(0 0 0 100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: clip-path 0.28s ease, visibility 0.28s;
   z-index: 1501;
   display: flex;
   flex-direction: column;
 }
 
 .due-panel.open {
-  transform: translateX(0);
+  clip-path: inset(0);
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .due-panel-header {
@@ -3545,6 +3575,377 @@ body.light-theme .tab-header-card {
   .due-alert {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* ================= ESTABILIDADE RESPONSIVA E NAVEGAÇÃO MOBILE ================= */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body.modal-open,
+body.quick-create-open,
+body.mobile-more-open {
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.modal-close-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-sheet-handle,
+.mobile-more-menu,
+.mobile-sheet-veil {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .top-header {
+    min-height: calc(64px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 12px 0;
+    flex-wrap: nowrap;
+  }
+
+  .header-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .page-title-group {
+    min-width: 0;
+  }
+
+  .page-title-group h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-right {
+    flex: 0 0 auto;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  /* No celular o Novo ocupa a posição central da barra inferior. */
+  .header-right > .quick-create {
+    display: none;
+  }
+
+  .theme-toggle-mobile-btn,
+  .due-bell-btn,
+  .period-selector-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .content-area {
+    width: 100%;
+    padding: 16px;
+    padding-bottom: calc(94px + env(safe-area-inset-bottom));
+  }
+
+  .tab-content,
+  .metrics-grid,
+  .charts-grid,
+  .dashboard-bottom-grid,
+  .settings-hub-grid,
+  .settings-detail,
+  .table-responsive {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .metric-card,
+  .chart-card,
+  .section-card,
+  .tab-header-card,
+  .score-card,
+  .forecast-card {
+    border-radius: 16px;
+  }
+
+  .chart-card,
+  .section-card,
+  .tab-header-card {
+    padding: 16px;
+  }
+
+  .btn,
+  .action-btn,
+  .form-control,
+  .custom-select {
+    min-height: 44px;
+  }
+
+  .bottom-nav {
+    min-height: calc(68px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: end;
+    padding: 0 6px env(safe-area-inset-bottom);
+    z-index: 100;
+  }
+
+  .bottom-nav-item {
+    min-width: 0;
+    min-height: 64px;
+    padding: 8px 2px 7px;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .bottom-nav-item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .bottom-nav-create {
+    color: var(--text-secondary);
+    overflow: visible;
+  }
+
+  .bottom-nav-create-icon {
+    width: 48px;
+    height: 48px;
+    margin-top: -22px;
+    display: grid;
+    place-items: center;
+    overflow: visible !important;
+    color: #fff;
+    border: 4px solid var(--bg-primary);
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    box-shadow: 0 10px 24px -10px var(--accent-primary);
+  }
+
+  .bottom-nav-create-icon i {
+    font-size: 1.45rem;
+  }
+
+  .bottom-nav-create:active .bottom-nav-create-icon {
+    transform: translateY(1px) scale(0.96);
+  }
+
+  .quick-create-veil.active,
+  .mobile-sheet-veil.active {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 7, 18, 0.56);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+
+  .quick-create-veil {
+    z-index: 998;
+  }
+
+  .quick-create-menu {
+    left: 10px;
+    right: 10px;
+    top: auto;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    z-index: 999;
+    width: auto;
+    max-height: min(70dvh, 610px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 22px;
+  }
+
+  .quick-create-menu.open {
+    animation: mobileSheetIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .mobile-sheet-handle {
+    width: 38px;
+    height: 4px;
+    margin: 9px auto 2px;
+    display: block;
+    border-radius: 999px;
+    background: var(--border-color);
+  }
+
+  .quick-create-menu-head {
+    padding-top: 12px;
+  }
+
+  .mobile-sheet-veil {
+    z-index: 996;
+  }
+
+  .mobile-more-menu {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    z-index: 997;
+    display: block;
+    padding: 0 16px 16px;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    background: var(--bg-secondary);
+    box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.75);
+    transition: opacity 180ms ease, transform 220ms ease, visibility 180ms ease;
+  }
+
+  .mobile-more-menu.open {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .mobile-more-head {
+    padding: 10px 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .mobile-more-head > div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mobile-more-head strong {
+    font-size: 0.95rem;
+  }
+
+  .mobile-more-head span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+  }
+
+  .mobile-more-grid {
+    padding-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .mobile-more-item {
+    min-width: 0;
+    min-height: 74px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobile-more-item > i {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 11px;
+    color: var(--accent-primary);
+    background: var(--accent-glow);
+    font-size: 1.1rem;
+  }
+
+  .mobile-more-item > span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mobile-more-item strong {
+    font-size: 0.8rem;
+  }
+
+  .mobile-more-item small {
+    color: var(--text-muted);
+    font-size: 0.66rem;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-body {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  .modal-footer .btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  @keyframes mobileSheetIn {
+    from { transform: translateY(22px) scale(0.98); }
+    to { transform: translateY(0) scale(1); }
+  }
+}
+
+@media (max-width: 420px) {
+  .content-area {
+    padding-inline: 12px;
+  }
+
+  #period-selector-label {
+    max-width: 70px;
+  }
+
+  .mobile-more-grid {
+    grid-template-columns: 1fr;
+    max-height: 52dvh;
+    overflow-y: auto;
+  }
+
+  .mobile-more-item {
+    min-height: 62px;
+  }
+}
+
+@media (max-width: 350px) {
+  .theme-toggle-mobile-btn {
+    display: none;
+  }
+
+  #period-selector-label {
+    max-width: 58px;
   }
 }
 
@@ -5196,5 +5597,61 @@ body.theme-changing .app-container {
   .credit-card-card {
     transform: none !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Garantias finais da cascata para os controles críticos no celular. */
+@media (max-width: 767px) {
+  .top-header {
+    flex-wrap: nowrap;
+    min-height: calc(64px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 12px 0;
+  }
+
+  .header-left {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .header-right {
+    flex: 0 0 auto;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .header-right > .quick-create {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-backdrop.active .modal-dialog {
+    animation: mobileModalIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes mobileModalIn {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@media (max-width: 360px) {
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-title-group {
+    display: block;
+  }
+
+  .page-title-group h1 {
+    font-size: 1rem;
   }
 }

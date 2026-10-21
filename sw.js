@@ -1,5 +1,5 @@
 /* FinanZen - Service Worker (PWA offline) */
-const VERSION = 'finanzen-v1.6.3';
+const VERSION = 'finanzen-v1.7.0';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -7,13 +7,13 @@ const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './css/style.css?v=1.6.3',
-  './js/state.js?v=1.6.3',
-  './js/charts.js?v=1.6.3',
-  './js/app.js?v=1.6.3',
-  './js/sync.js?v=1.6.3',
-  './js/open-finance.js?v=1.6.3',
-  './js/sync-config.js?v=1.6.3',
+  './css/style.css?v=1.7.0',
+  './js/state.js?v=1.7.0',
+  './js/charts.js?v=1.7.0',
+  './js/app.js?v=1.7.0',
+  './js/sync.js?v=1.7.0',
+  './js/open-finance.js?v=1.7.0',
+  './js/sync-config.js?v=1.7.0',
   './js/vendor/supabase.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

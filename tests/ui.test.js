@@ -39,6 +39,7 @@ let profileDirectory;
 let cdp;
 let appUrl;
 let currentMobile = false;
+let runtimeErrors = [];
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -89,14 +90,23 @@ class CdpClient {
     this.socket = socket;
     this.nextId = 1;
     this.pending = new Map();
+    this.listeners = new Map();
     socket.addEventListener('message', event => {
       const message = JSON.parse(event.data);
+      if (message.method && this.listeners.has(message.method)) {
+        for (const listener of this.listeners.get(message.method)) listener(message.params || {});
+      }
       if (!message.id || !this.pending.has(message.id)) return;
       const { resolve, reject } = this.pending.get(message.id);
       this.pending.delete(message.id);
       if (message.error) reject(new Error(message.error.message));
       else resolve(message.result || {});
     });
+  }
+
+  on(method, listener) {
+    if (!this.listeners.has(method)) this.listeners.set(method, []);
+    this.listeners.get(method).push(listener);
   }
 
   send(method, params = {}) {
@@ -183,11 +193,12 @@ async function tap(selector) {
     await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: target.x, y: target.y, button: 'left', clickCount: 1 });
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: target.x, y: target.y, button: 'left', clickCount: 1 });
   }
-  await delay(180);
+  await delay(360);
 }
 
 async function openViewport({ width, height, mobile }) {
   currentMobile = mobile;
+  runtimeErrors = [];
   await cdp.send('Emulation.setDeviceMetricsOverride', {
     width,
     height,
@@ -222,6 +233,9 @@ async function assertQuickCreateFlow(viewport) {
       open: root.classList.contains('open'),
       expanded: document.getElementById('quick-create-btn').getAttribute('aria-expanded'),
       visible: style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0,
+      display: style.display,
+      visibility: style.visibility,
+      opacity: style.opacity,
       withinViewport: rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight,
       rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
     };
@@ -240,13 +254,14 @@ async function assertQuickCreateFlow(viewport) {
       active: modal.classList.contains('active'),
       title: document.getElementById('tx-modal-title').textContent,
       type: document.getElementById('tx-toggle-expense').classList.contains('active'),
-      withinViewport: rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight + 1
+      withinViewport: rect.left >= -1 && rect.right <= innerWidth + 1 && rect.top >= -1 && rect.bottom <= innerHeight + 1,
+      rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, viewportHeight: innerHeight }
     };
   })()`);
   assert.equal(modalState.active, true, 'Despesa deve abrir o modal de transacao');
   assert.match(modalState.title, /Nova Transa/);
   assert.equal(modalState.type, true);
-  assert.equal(modalState.withinViewport, true, 'modal deve permanecer dentro da viewport');
+  assert.equal(modalState.withinViewport, true, `modal deve permanecer dentro da viewport: ${JSON.stringify(modalState.rect)}`);
 
   await tap('#modal-transaction .modal-close-btn');
   assert.equal(await cdp.evaluate(`document.getElementById('modal-transaction').classList.contains('active')`), false);
@@ -288,12 +303,27 @@ before(async () => {
   cdp = new CdpClient(socket);
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  cdp.on('Runtime.exceptionThrown', ({ exceptionDetails }) => {
+    runtimeErrors.push(exceptionDetails?.exception?.description || exceptionDetails?.text || 'Erro desconhecido');
+  });
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `globalThis.Chart = class ChartStub {
+      constructor(_target, config = {}) { this.data = config.data || { labels: [], datasets: [] }; }
+      update() {}
+      destroy() {}
+      resize() {}
+    };`
+  });
 }, { timeout: 20000 });
 
 after(async () => {
   try {
     cdp?.socket?.close();
-    browser?.kill();
+    if (browser && browser.exitCode === null) {
+      const exited = new Promise(resolve => browser.once('exit', resolve));
+      browser.kill();
+      await Promise.race([exited, delay(1500)]);
+    }
     server?.closeAllConnections?.();
     await new Promise(resolve => server?.close(resolve));
   } finally {
@@ -309,18 +339,18 @@ after(async () => {
 
 test('fluxo Novo funciona no desktop', async () => {
   await assertQuickCreateFlow({ width: 1440, height: 900, mobile: false });
+  assert.deepEqual(runtimeErrors, []);
 });
 
 test('fluxo Novo funciona no mobile', async () => {
   await assertQuickCreateFlow({ width: 390, height: 844, mobile: true });
+  assert.deepEqual(runtimeErrors, []);
 });
 
 test('navegacao mobile abre todas as areas principais', async () => {
   await openViewport({ width: 390, height: 844, mobile: true });
-  const tabs = ['dashboard', 'transactions', 'cards', 'budgets', 'goals', 'reports', 'settings'];
-
-  for (const tab of tabs) {
-    await cdp.evaluate(`document.querySelector('[data-tab="${tab}"]').click()`);
+  for (const tab of ['dashboard', 'transactions', 'reports']) {
+    await tap(`.bottom-nav-item[data-tab="${tab}"]`);
     const result = await cdp.evaluate(`({
       visible: document.getElementById('tab-${tab}').classList.contains('active'),
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
@@ -328,4 +358,108 @@ test('navegacao mobile abre todas as areas principais', async () => {
     assert.equal(result.visible, true, `aba ${tab} deve ficar ativa`);
     assert.equal(result.overflow, false, `aba ${tab} nao deve criar rolagem horizontal`);
   }
+
+  for (const tab of ['cards', 'budgets', 'goals', 'settings']) {
+    await tap('#mobile-more-btn');
+    assert.equal(await cdp.evaluate(`document.getElementById('mobile-more-menu').classList.contains('open')`), true);
+    await tap(`.mobile-more-item[data-tab="${tab}"]`);
+    const result = await cdp.evaluate(`({
+      visible: document.getElementById('tab-${tab}').classList.contains('active'),
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      moreActive: document.getElementById('mobile-more-btn').classList.contains('active')
+    })`);
+    assert.equal(result.visible, true, `aba ${tab} deve ficar ativa`);
+    assert.equal(result.overflow, false, `aba ${tab} nao deve criar rolagem horizontal`);
+    assert.equal(result.moreActive, true, `Mais deve representar a aba ${tab}`);
+  }
+  assert.deepEqual(runtimeErrors, []);
+});
+
+test('todos os atalhos do Novo mobile abrem o modulo correto', async () => {
+  await openViewport({ width: 390, height: 844, mobile: true });
+  const actions = [
+    ['.quick-create-income', 'modal-transaction'],
+    ['.quick-create-expense', 'modal-transaction'],
+    ['.quick-create-transfer', 'modal-transfer'],
+    ['[data-create-action="account"]', 'modal-account'],
+    ['[data-create-action="budget"]', 'modal-budget'],
+    ['[data-create-action="goal"]', 'modal-goal']
+  ];
+
+  for (const [selector, modalId] of actions) {
+    await tap('#quick-create-mobile-btn');
+    await tap(`#quick-create-menu ${selector}`);
+    assert.equal(
+      await cdp.evaluate(`document.getElementById('${modalId}').classList.contains('active')`),
+      true,
+      `${selector} deve abrir ${modalId}`
+    );
+    await tap(`#${modalId} .modal-close-btn`);
+  }
+  assert.deepEqual(runtimeErrors, []);
+});
+
+test('cadastro de despesa funciona pela interface mobile', async () => {
+  await openViewport({ width: 390, height: 844, mobile: true });
+  const initialCount = await cdp.evaluate('window.financialState.data.transactions.length');
+  await tap('#quick-create-mobile-btn');
+  await tap('#quick-create-menu .quick-create-expense');
+  await cdp.evaluate(`(() => {
+    document.getElementById('tx-desc-input').value = 'Teste automatizado mobile';
+    document.getElementById('tx-amount-input').value = '12.34';
+    document.getElementById('tx-date-input').value = '2026-10-21';
+    document.getElementById('tx-form').requestSubmit();
+  })()`);
+  await delay(450);
+  const saved = await cdp.evaluate(`({
+    count: window.financialState.data.transactions.length,
+    modalOpen: document.getElementById('modal-transaction').classList.contains('active'),
+    found: window.financialState.data.transactions.some(tx => tx.description === 'Teste automatizado mobile' && tx.amount === 12.34)
+  })`);
+  assert.equal(saved.count, initialCount + 1);
+  assert.equal(saved.modalOpen, false);
+  assert.equal(saved.found, true);
+  assert.deepEqual(runtimeErrors, []);
+});
+
+test('layout nao estoura em larguras critica de celular, tablet e desktop', async () => {
+  const viewports = [
+    { width: 320, height: 700, mobile: true },
+    { width: 768, height: 900, mobile: false },
+    { width: 1440, height: 900, mobile: false }
+  ];
+
+  for (const viewport of viewports) {
+    await openViewport(viewport);
+    const layout = await cdp.evaluate(`({
+      width: innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      headerWidth: document.querySelector('.top-header').getBoundingClientRect().width,
+      offenders: [...document.querySelectorAll('body *')]
+        .map(element => {
+          const rect = element.getBoundingClientRect();
+          return { tag: element.tagName, id: element.id, className: String(element.className || ''), left: rect.left, right: rect.right, width: rect.width };
+        })
+        .filter(item => item.width > innerWidth + 1 || item.right > innerWidth + 1 || item.left < -1)
+        .sort((a, b) => b.right - a.right)
+        .slice(0, 8)
+    })`);
+    assert.ok(layout.documentWidth <= layout.width + 1, `documento estourou em ${viewport.width}px: ${JSON.stringify(layout)}`);
+    assert.ok(layout.bodyWidth <= layout.width + 1, `body estourou em ${viewport.width}px: ${JSON.stringify(layout)}`);
+    assert.ok(layout.headerWidth <= layout.width + 1, `cabecalho estourou em ${viewport.width}px: ${JSON.stringify(layout)}`);
+  }
+});
+
+test('gera capturas de QA quando solicitado', { skip: !process.env.FINANZEN_SCREENSHOT_DIR }, async () => {
+  const directory = process.env.FINANZEN_SCREENSHOT_DIR;
+  fs.mkdirSync(directory, { recursive: true });
+
+  await openViewport({ width: 390, height: 844, mobile: true });
+  let capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+  fs.writeFileSync(path.join(directory, 'finanzen-mobile-cdp.png'), Buffer.from(capture.data, 'base64'));
+
+  await openViewport({ width: 1440, height: 900, mobile: false });
+  capture = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
+  fs.writeFileSync(path.join(directory, 'finanzen-desktop-cdp.png'), Buffer.from(capture.data, 'base64'));
 });

@@ -2,6 +2,22 @@
 
 Este arquivo registra as mudanças relevantes de cada versão do FinanZen.
 
+## 1.7.0 — 21/10/2026
+
+### Desktop e mobile
+
+- Corrigido o botão **Novo** no celular ao mover o menu para um portal fora do cabeçalho com efeito de vidro.
+- Adicionada uma ação central **Novo** na barra inferior mobile, com área de toque ampliada.
+- A navegação mobile agora possui cinco ações legíveis; Cartões, Orçamentos, Metas e Ajustes ficam organizados em **Mais**.
+- Corrigidos estouros horizontais em telas de 320 px nos gráficos, comparativos e painel de vencimentos.
+- Cabeçalho, cartões, formulários e rodapés de modais receberam espaçamento e dimensões de toque consistentes.
+
+### Funcionalidade e acessibilidade
+
+- Os modais agora controlam foco, tecla `Esc`, atributos ARIA e bloqueio de rolagem da página.
+- Os menus de período, Novo e Mais fecham uns aos outros para evitar camadas sobrepostas.
+- Adicionada suíte de interface em Chrome/Edge para testar desktop, mobile, navegação, atalhos e cadastro de despesa.
+
 ## 1.6.3 — 20/10/2026
 
 ### Proteção contra perda de dados

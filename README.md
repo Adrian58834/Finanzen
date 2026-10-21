@@ -4,7 +4,7 @@ O **FinanZen** é uma aplicação web (PWA) moderna, sofisticada e intuitiva pro
 
 Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **opcional**.
 
-**Versão atual:** 1.6.3 — consulte o [histórico de alterações](CHANGELOG.md).
+**Versão atual:** 1.7.0 — consulte o [histórico de alterações](CHANGELOG.md).
 
 ---
 
@@ -89,6 +89,7 @@ Para publicar, verifique [DEPLOY.md](DEPLOY.md) (guia completo) e [GUIA-RAPIDO.m
 
 ```bash
 npm test        # testes de negócio, sync e integridade (node:test)
+npm run test:ui # fluxos reais de desktop/mobile no Chrome ou Edge
 npm run check   # verificação de sintaxe de todos os JS
 ```
 
