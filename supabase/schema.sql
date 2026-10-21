@@ -41,3 +41,53 @@ create policy "finanzen_update_own"
   on public.finanzen_data for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Histórico de segurança: arquiva a versão anterior antes de cada atualização.
+-- Mantém as 30 versões mais recentes de cada usuário.
+create table if not exists public.finanzen_data_history (
+  history_id        bigint generated always as identity primary key,
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  data              jsonb not null,
+  settings          jsonb not null default '{}'::jsonb,
+  source_updated_at timestamptz,
+  archived_at       timestamptz not null default now()
+);
+
+create index if not exists idx_finanzen_history_user_archived
+  on public.finanzen_data_history (user_id, archived_at desc);
+
+alter table public.finanzen_data_history enable row level security;
+
+drop policy if exists "finanzen_history_select_own" on public.finanzen_data_history;
+create policy "finanzen_history_select_own"
+  on public.finanzen_data_history for select
+  using (auth.uid() = user_id);
+
+create or replace function public.archive_finanzen_data()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.finanzen_data_history (user_id, data, settings, source_updated_at)
+  values (old.user_id, old.data, old.settings, old.updated_at);
+
+  delete from public.finanzen_data_history
+  where user_id = old.user_id
+    and history_id not in (
+      select history_id
+      from public.finanzen_data_history
+      where user_id = old.user_id
+      order by archived_at desc, history_id desc
+      limit 30
+    );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_archive_finanzen_data on public.finanzen_data;
+create trigger trg_archive_finanzen_data
+  before update on public.finanzen_data
+  for each row execute function public.archive_finanzen_data();

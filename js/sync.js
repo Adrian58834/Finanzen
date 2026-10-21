@@ -1,7 +1,8 @@
 /**
  * FinanZen - Sincronização em nuvem (Supabase)
  *
- * Estratégia "last-write-wins": o registro mais recente (updated_at) vence.
+ * Estratégia conservadora: combina registros locais e remotos, registra
+ * exclusões e cria pontos de recuperação antes de qualquer substituição.
  * Sem configuração em sync-config.js o módulo fica inativo e o app segue local.
  */
 (function () {
@@ -178,9 +179,49 @@
       };
     },
 
-    async push() {
+    async push(options = {}) {
       if (!this.user) return { error: 'Não autenticado.' };
       this.setStatus('syncing');
+      const state = window.financialState;
+
+      if (state && typeof state.createRecoverySnapshot === 'function') {
+        state.createRecoverySnapshot('Antes de enviar dados para a nuvem', state.data, state.settings, { source: 'sync' });
+      }
+
+      if (!options.replaceRemote && !options.skipRemoteMerge) {
+        const remoteResult = await this.fetchRemote();
+        if (remoteResult.error) return { error: remoteResult.error };
+        const remoteRow = remoteResult.row;
+        if (remoteRow && remoteRow.data) {
+          const normalizedRemote = state.normalizeData(remoteRow.data);
+          if (!normalizedRemote) {
+            this.setError('A cópia da nuvem é inválida e não foi sobrescrita.');
+            return { error: this.lastError };
+          }
+
+          state.createRecoverySnapshot('Cópia da nuvem antes da sincronização', normalizedRemote, remoteRow.settings || {}, { source: 'cloud' });
+          const remoteTime = new Date(remoteRow.updated_at || 0).getTime();
+          const preferLocal = options.preferLocal === true || this.localChangeTime() >= remoteTime;
+          const merged = state.mergeData(normalizedRemote, state.data, preferLocal);
+
+          state._suspendSync = true;
+          try {
+            state.data = merged;
+            if (!preferLocal && remoteRow.settings) state.settings = state.normalizeSettings(remoteRow.settings);
+            localStorage.setItem(state.STORAGE_KEY, JSON.stringify(state.data));
+            localStorage.setItem(state.SETTINGS_KEY, JSON.stringify(state.settings));
+          } finally {
+            state._suspendSync = false;
+          }
+        }
+      } else if (options.replaceRemote) {
+        const remoteResult = await this.fetchRemote();
+        if (remoteResult.error) return { error: remoteResult.error };
+        if (remoteResult.row && remoteResult.row.data && state && typeof state.createRecoverySnapshot === 'function') {
+          state.createRecoverySnapshot('Cópia da nuvem antes da substituição', remoteResult.row.data, remoteResult.row.settings || {}, { source: 'cloud' });
+        }
+      }
+
       const payload = this.payload();
       const { error } = await this.client
         .from(this.table())
@@ -216,7 +257,33 @@
       return { row: data || null };
     },
 
-    async pull() {
+    async importCloudHistoryToRecovery() {
+      if (!this.user) return { error: 'Entre na sua conta para acessar o histórico da nuvem.' };
+      const state = window.financialState;
+      const { data, error } = await this.client
+        .from('finanzen_data_history')
+        .select('history_id, data, settings, source_updated_at, archived_at')
+        .eq('user_id', this.user.id)
+        .order('archived_at', { ascending: false })
+        .limit(8);
+
+      if (error) {
+        return { error: 'Histórico indisponível. Execute novamente supabase/schema.sql no SQL Editor.' };
+      }
+
+      const rows = Array.isArray(data) ? data : [];
+      rows.forEach(row => {
+        state.createRecoverySnapshot(
+          'Versão anterior salva na nuvem',
+          row.data,
+          row.settings || {},
+          { source: 'cloud', createdAt: row.source_updated_at || row.archived_at }
+        );
+      });
+      return { ok: true, count: rows.length };
+    },
+
+    async pull(options = {}) {
       const { row, error } = await this.fetchRemote();
       if (error) return { error };
       if (!row || !row.data) return { ok: true, empty: true };
@@ -227,11 +294,21 @@
         this.setError('Dados inválidos recebidos da nuvem.');
         return { error: this.lastError };
       }
+
+      if (typeof state.createRecoverySnapshot === 'function') {
+        state.createRecoverySnapshot('Cópia local antes de receber dados da nuvem', state.data, state.settings, { source: 'sync' });
+        state.createRecoverySnapshot('Cópia recebida da nuvem', normalized, row.settings || {}, { source: 'cloud' });
+      }
+
+      const merged = options.replaceLocal
+        ? normalized
+        : state.mergeData(state.data, normalized, options.preferLocal !== true);
       state._suspendSync = true;
       try {
-        state.data = normalized;
-        if (row.settings) state.saveSettings(row.settings);
+        state.data = merged;
+        if (row.settings && options.preferLocal !== true) state.settings = state.normalizeSettings(row.settings);
         localStorage.setItem(state.STORAGE_KEY, JSON.stringify(state.data));
+        localStorage.setItem(state.SETTINGS_KEY, JSON.stringify(state.settings));
       } finally {
         state._suspendSync = false;
       }
@@ -259,9 +336,14 @@
       const lastRecordedLocalChange = parseInt(meta.lastLocalChangeAt || '0', 10) || 0;
       const hasUnsyncedLocalChanges = this.localChangeTime() > lastRecordedLocalChange;
 
-      if (hasUnsyncedLocalChanges) return this.push();
+      if (hasUnsyncedLocalChanges && remoteTime > syncedTime) {
+        const pullResult = await this.pull({ preferLocal: this.localChangeTime() >= remoteTime });
+        if (pullResult && pullResult.error) return pullResult;
+        return this.push({ skipRemoteMerge: true });
+      }
+      if (hasUnsyncedLocalChanges) return this.push({ preferLocal: true });
       if (remoteTime > syncedTime) return this.pull();
-      if (remoteTime < syncedTime) return this.push();
+      if (remoteTime < syncedTime) return this.push({ preferLocal: true });
 
       this.lastSyncedAt = row.updated_at || this.lastSyncedAt;
       this.setStatus('synced');
@@ -331,6 +413,12 @@
   window.financeSync = sync;
 
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => sync.init(), 0);
+    setTimeout(async () => {
+      await sync.init();
+      if (window.app && typeof window.app.processRecurringOnLoad === 'function') {
+        window.app.processRecurringOnLoad();
+        if (typeof window.app.renderAll === 'function') window.app.renderAll();
+      }
+    }, 0);
   });
 })();

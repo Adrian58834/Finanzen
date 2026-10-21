@@ -110,6 +110,7 @@ test('configurações usam uma central de blocos que abre um módulo por vez', (
   const modules = [
     'settings-account',
     'settings-summary',
+    'settings-recovery',
     'settings-export',
     'settings-import',
     'settings-recurring',
@@ -130,4 +131,16 @@ test('configurações usam uma central de blocos que abre um módulo por vez', (
   }
   assert.ok(js.includes('openSettingsModule(moduleId'), 'falta a abertura isolada dos módulos');
   assert.ok(js.includes('showSettingsHome(restoreFocus'), 'falta o retorno à central');
+});
+
+test('proteção contra perda de dados possui histórico local e no Supabase', () => {
+  const state = read('js/state.js');
+  const sync = read('js/sync.js');
+  const schema = read('supabase/schema.sql');
+  assert.ok(state.includes("RECOVERY_KEY = 'finanzen_recovery_v1'"));
+  assert.ok(state.includes('createRecoverySnapshot('));
+  assert.ok(state.includes('mergeData(first, second'));
+  assert.ok(sync.includes("Cópia da nuvem antes da sincronização"));
+  assert.ok(schema.includes('create table if not exists public.finanzen_data_history'));
+  assert.ok(schema.includes('trg_archive_finanzen_data'));
 });

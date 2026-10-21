@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
       this.setupCustomization();
       this.setupMobileMenu();
       this.setupSpatialInteractions();
-      this.processRecurringOnLoad();
       this.renderAll();
       this.renderSyncPanel();
     },
@@ -679,6 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
       this.renderReports();
       this.renderSettingsLists();
       this.renderDataSummary();
+      this.renderRecoverySnapshots();
       this.renderDueReminders();
       this.renderDashboardContext();
       this.renderOpenFinancePanel();
@@ -706,6 +706,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const lastBackup = state.settings.lastBackupAt;
       setText('data-stat-last-backup', lastBackup ? this.formatDate(lastBackup.slice(0, 10)) : 'Nunca');
+    },
+
+    renderRecoverySnapshots() {
+      const list = document.getElementById('recovery-list');
+      if (!list) return;
+      const snapshots = window.financialState.getRecoverySnapshots();
+
+      if (snapshots.length === 0) {
+        list.innerHTML = `
+          <div class="recovery-empty">
+            <i class="ri-shield-check-line" aria-hidden="true"></i>
+            <div><strong>Nenhuma cópia criada ainda</strong><span>A primeira será gerada automaticamente antes de uma operação de risco.</span></div>
+          </div>`;
+        return;
+      }
+
+      const sourceLabels = {
+        cloud: 'Nuvem',
+        sync: 'Sincronização',
+        import: 'Importação',
+        reset: 'Restauração',
+        manual: 'Manual',
+        local: 'Local'
+      };
+
+      list.innerHTML = snapshots.map(snapshot => {
+        const stats = snapshot.stats || {};
+        return `
+          <article class="recovery-row" data-recovery-id="${this.escapeHtml(snapshot.id)}">
+            <span class="recovery-row-icon"><i class="ri-file-history-line"></i></span>
+            <div class="recovery-row-copy">
+              <strong>${this.escapeHtml(snapshot.reason || 'Cópia de segurança')}</strong>
+              <span>${this.formatDateTime(snapshot.createdAt)} · ${Number(stats.transactions) || 0} lançamentos · ${sourceLabels[snapshot.source] || 'Local'}</span>
+            </div>
+            <div class="recovery-row-actions">
+              <button class="action-btn" type="button" data-recovery-action="download" title="Baixar esta cópia" aria-label="Baixar esta cópia"><i class="ri-download-2-line"></i></button>
+              <button class="btn btn-secondary btn-sm" type="button" data-recovery-action="restore"><i class="ri-history-line"></i> Recuperar</button>
+              <button class="action-btn delete" type="button" data-recovery-action="delete" title="Excluir esta cópia" aria-label="Excluir esta cópia"><i class="ri-delete-bin-line"></i></button>
+            </div>
+          </article>`;
+      }).join('');
     },
 
     // --- Vencimentos e Lembretes ---
@@ -1110,8 +1151,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <details class="sync-advanced-actions">
             <summary>Opções avançadas</summary>
             <div class="settings-actions">
-              <button id="sync-push-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-upload-cloud-2-line"></i> Enviar para a nuvem</button>
-              <button id="sync-pull-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-download-cloud-2-line"></i> Baixar da nuvem</button>
+              <button id="sync-push-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-upload-cloud-2-line"></i> Combinar e enviar</button>
+              <button id="sync-pull-btn" class="btn btn-secondary btn-sm" type="button"><i class="ri-download-cloud-2-line"></i> Trazer e combinar</button>
             </div>
           </details>
         </div>
@@ -1182,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (button.id === 'sync-push-btn') {
           const r = await sync.push();
-          this.showToast(r && r.error ? 'Erro ao enviar.' : 'Dados enviados para a nuvem!', r && r.error ? 'error' : 'success');
+          this.showToast(r && r.error ? 'Erro ao enviar.' : 'Dados combinados e enviados com segurança!', r && r.error ? 'error' : 'success');
           this.renderSyncPanel();
           return;
         }
@@ -1190,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (button.id === 'sync-pull-btn') {
           const r = await sync.pull();
           if (r && r.error) this.showToast('Erro ao baixar.', 'error');
-          else { this.showToast('Dados baixados da nuvem!', 'success'); this.renderAll(); }
+          else { this.showToast('Dados locais e da nuvem foram combinados!', 'success'); this.renderAll(); }
           this.renderSyncPanel();
           return;
         }
@@ -3762,6 +3803,72 @@ populateTxCategories(type, selectedCatId = null) {
       const btnImportCSV = document.getElementById('btn-import-csv');
       const inputCSVFile = document.getElementById('import-csv-file');
       const resetForm = document.getElementById('reset-data-form');
+      const createRecoveryButton = document.getElementById('create-recovery-btn');
+      const loadCloudHistoryButton = document.getElementById('load-cloud-history-btn');
+      const recoveryList = document.getElementById('recovery-list');
+
+      if (createRecoveryButton) {
+        createRecoveryButton.addEventListener('click', () => {
+          const id = window.financialState.createRecoverySnapshot('Cópia criada manualmente', undefined, undefined, { source: 'manual' });
+          this.renderRecoverySnapshots();
+          this.showToast(id ? 'Ponto de recuperação criado.' : 'Não foi possível criar a cópia.', id ? 'success' : 'error');
+        });
+      }
+
+      if (loadCloudHistoryButton) {
+        loadCloudHistoryButton.addEventListener('click', async () => {
+          const sync = window.financeSync;
+          if (!sync || !sync.user) {
+            this.showToast('Entre na sua conta para buscar o histórico da nuvem.', 'warning');
+            return;
+          }
+          loadCloudHistoryButton.disabled = true;
+          loadCloudHistoryButton.innerHTML = '<i class="ri-loader-4-line ri-spin"></i> Buscando...';
+          const result = await sync.importCloudHistoryToRecovery();
+          loadCloudHistoryButton.disabled = false;
+          loadCloudHistoryButton.innerHTML = '<i class="ri-cloud-line"></i> Buscar histórico da nuvem';
+          if (result && result.error) {
+            this.showToast(result.error, 'warning');
+          } else {
+            this.renderRecoverySnapshots();
+            this.showToast(result.count > 0 ? `${result.count} versão(ões) recuperada(s) da nuvem.` : 'Ainda não existem versões anteriores na nuvem.', result.count > 0 ? 'success' : 'info');
+          }
+        });
+      }
+
+      if (recoveryList) {
+        recoveryList.addEventListener('click', event => {
+          const button = event.target.closest('[data-recovery-action]');
+          const row = event.target.closest('[data-recovery-id]');
+          if (!button || !row) return;
+          const id = row.dataset.recoveryId;
+          const action = button.dataset.recoveryAction;
+
+          if (action === 'download') {
+            const success = window.financialState.exportRecoverySnapshot(id);
+            this.showToast(success ? 'Cópia de recuperação baixada.' : 'Cópia não encontrada.', success ? 'success' : 'error');
+            return;
+          }
+
+          if (action === 'restore') {
+            if (!confirm('Recuperar esta cópia? O estado atual também será salvo antes da restauração.')) return;
+            const success = window.financialState.restoreRecoverySnapshot(id);
+            if (success) {
+              this.renderAll();
+              this.showToast('Dados recuperados. Uma cópia do estado anterior também foi guardada.', 'success');
+            } else {
+              this.showToast('Não foi possível recuperar esta cópia.', 'error');
+            }
+            return;
+          }
+
+          if (action === 'delete' && confirm('Excluir apenas esta cópia de recuperação?')) {
+            window.financialState.deleteRecoverySnapshot(id);
+            this.renderRecoverySnapshots();
+            this.showToast('Cópia de recuperação excluída.', 'info');
+          }
+        });
+      }
 
       if (btnExportJSON) {
         btnExportJSON.addEventListener('click', () => {
@@ -3865,7 +3972,7 @@ populateTxCategories(type, selectedCatId = null) {
           }
 
           window.financialState.resetAllData();
-          const cloudResult = await sync.push();
+          const cloudResult = await sync.push({ replaceRemote: true });
           resetForm.reset();
           this.closeModal('modal-reset-data');
           this.renderAll();

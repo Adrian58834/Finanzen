@@ -4,7 +4,7 @@ O **FinanZen** é uma aplicação web (PWA) moderna, sofisticada e intuitiva pro
 
 Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **opcional**.
 
-**Versão atual:** 1.6.2 — consulte o [histórico de alterações](CHANGELOG.md).
+**Versão atual:** 1.6.3 — consulte o [histórico de alterações](CHANGELOG.md).
 
 ---
 
@@ -50,6 +50,7 @@ Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **o
    - Dados armazenados no navegador via `localStorage`.
    - **Backup completo (JSON)** para download e restauração.
    - **Exportação para planilhas (CSV)** compatível com Excel e Google Sheets.
+   - Pontos de recuperação automáticos antes de sincronizações e importações.
    - **Modo Escuro** e **Modo Claro** com memória de preferência.
 
 8. **PWA - Instalável e Offline**:
@@ -58,7 +59,8 @@ Roda 100% no navegador, sem servidor próprio. A sincronização em nuvem é **o
 
 9. **Sincronização em Nuvem (opcional)**:
    - Login por e-mail e senha via **Supabase**, com sincronização automática entre aparelhos.
-   - Estratégia *last-write-wins*: o registro mais recente vence.
+   - Merge conservador: registros exclusivos do navegador e da nuvem são preservados.
+   - Histórico das 30 versões anteriores no Supabase e controle de exclusões.
    - Sem configurar o Supabase, o app segue 100% local e nenhum dado sai do dispositivo.
 
 10. **Fundação Open Finance (em preparação)**:
@@ -76,6 +78,10 @@ Não é necessário instalar nenhum servidor ou banco de dados.
 2. Utilize extensões como *Live Server* no VS Code.
 
 Para publicar, verifique [DEPLOY.md](DEPLOY.md) (guia completo) e [GUIA-RAPIDO.md](GUIA-RAPIDO.md) (resumo de 1 página).
+
+> Atualizando uma instalação anterior para a versão 1.6.3 ou superior:
+> execute novamente o arquivo `supabase/schema.sql` no SQL Editor. O script é
+> idempotente e cria o histórico de segurança sem apagar a tabela atual.
 
 ---
 

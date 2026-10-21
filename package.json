@@ -1,6 +1,6 @@
 {
   "name": "finanzen",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "private": true,
   "description": "FinanZen - Sistema completo de gestão financeira pessoal (local, sem servidor)",
   "scripts": {

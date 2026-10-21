@@ -515,6 +515,39 @@ test('resetAllData regenera dados de demonstração', () => {
   assert.ok(s.data.accounts.length >= 6);
   const persisted = JSON.parse(setup.storage.getItem(setup.STORAGE_KEY));
   assert.strictEqual(persisted.transactions.length, before, 'restauração deve ser persistida imediatamente');
+  assert.ok(s.getRecoverySnapshots().length > 0, 'estado anterior deve ficar disponível para recuperação');
+});
+
+test('pontos de recuperação preservam e restauram o estado anterior', () => {
+  const s = fresh();
+  s.data.transactions = [];
+  const tx = s.addTransaction({ description: 'Registro protegido', amount: 321, type: 'income', date: '2026-10-01' });
+  const snapshotId = s.createRecoverySnapshot('Teste manual', undefined, undefined, { source: 'manual' });
+
+  s.deleteTransaction(tx.id);
+  assert.strictEqual(s.data.transactions.length, 0);
+  assert.strictEqual(s.restoreRecoverySnapshot(snapshotId), true);
+  assert.strictEqual(s.data.transactions[0].description, 'Registro protegido');
+  assert.ok(s.getRecoverySnapshots().length >= 2, 'restauração também protege o estado substituído');
+});
+
+test('merge preserva registros dos dois lados e respeita exclusões registradas', () => {
+  const s = fresh();
+  const local = s.normalizeData({
+    transactions: [{ id: 'tx-local', description: 'Local', amount: 10, type: 'income', date: '2026-10-01' }],
+    budgets: [], goals: [], accounts: [], customCategories: [], recurring: []
+  });
+  const cloud = s.normalizeData({
+    transactions: [{ id: 'tx-cloud', description: 'Nuvem', amount: 20, type: 'expense', date: '2026-10-02' }],
+    budgets: [], goals: [], accounts: [], customCategories: [], recurring: []
+  });
+
+  let merged = s.mergeData(local, cloud, true);
+  assert.deepStrictEqual(merged.transactions.map(tx => tx.id).sort(), ['tx-cloud', 'tx-local']);
+
+  local.tombstones.transactions['tx-cloud'] = Date.now();
+  merged = s.mergeData(local, cloud, false);
+  assert.deepStrictEqual(merged.transactions.map(tx => tx.id), ['tx-local'], 'tombstone impede que item excluído reapareça');
 });
 
 test('saveSettings persiste preferências (moeda)', () => {

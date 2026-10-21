@@ -2292,6 +2292,86 @@ body.light-theme .toast {
   overflow-y: auto;
 }
 
+.recovery-safety-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: rgba(16, 185, 129, 0.08);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.recovery-safety-note i {
+  color: var(--income);
+  font-size: 1.1rem;
+}
+
+.recovery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.recovery-empty,
+.recovery-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+
+.recovery-empty {
+  color: var(--text-muted);
+}
+
+.recovery-empty > i,
+.recovery-row-icon {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  color: var(--accent-primary);
+  background: var(--accent-glow);
+}
+
+.recovery-empty > div,
+.recovery-row-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recovery-empty strong,
+.recovery-row-copy strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
+.recovery-empty span,
+.recovery-row-copy span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.recovery-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
 .settings-card-head-action .btn {
   margin-left: auto;
   flex: 0 0 auto;
@@ -3176,6 +3256,9 @@ body.light-theme .tab-header-card {
   .settings-category-form .btn { grid-column: 1 / -1; grid-row: 3; }
   .settings-card-head-action { align-items: flex-start; flex-wrap: wrap; }
   .settings-card-head-action .btn { margin-left: 50px; }
+  .recovery-row { align-items: flex-start; flex-wrap: wrap; }
+  .recovery-row-actions { width: 100%; justify-content: flex-end; }
+  #settings-recovery .settings-card-head-action .btn { width: 100%; margin-left: 0; }
 }
 
 /* ================= VENCIMENTOS / LEMBRETES ================= */

@@ -77,7 +77,7 @@ test('primeiro login sem dados na nuvem envia o estado local', async () => {
   assert.strictEqual(row.data.transactions.length, env.state.data.transactions.length);
 });
 
-test('nuvem mais antiga não sobrescreve o local (last-write-wins)', async () => {
+test('nuvem mais antiga não sobrescreve o local', async () => {
   const env = createSyncEnv({
     config: CONFIG,
     rows: [{
@@ -121,6 +121,30 @@ test('edição local depois do último sync vence nuvem mais nova (sem perda de 
 
   assert.strictEqual(env.state.data.transactions[0].description, localDesc, 'edição local preservada');
   assert.strictEqual(env.fake.rows.get('user-1').data.transactions[0].description, localDesc, 'edição local enviada');
+  assert.ok(env.state.data.transactions.some(tx => tx.id === 'tx-remoto'), 'registro exclusivo da nuvem também é preservado');
+  assert.ok(env.fake.rows.get('user-1').data.transactions.some(tx => tx.id === 'tx-remoto'), 'merge seguro é salvo na nuvem');
+  assert.ok(env.state.getRecoverySnapshots().length > 0, 'sincronização cria ponto de recuperação');
+});
+
+test('push seguro não apaga registros que existem apenas na nuvem', async () => {
+  const env = createSyncEnv({
+    config: CONFIG,
+    rows: [{
+      user_id: 'user-1',
+      data: remoteData('Somente na nuvem'),
+      settings: {},
+      updated_at: '2026-01-01T00:00:00.000Z'
+    }]
+  });
+  await env.sync.init();
+  env.sync.user = { id: 'user-1', email: 'eu@teste.com' };
+  env.state.addTransaction({ id: 'tx-local-nova', description: 'Somente local', amount: 50, type: 'income', date: '2026-10-01' });
+
+  await env.sync.push({ preferLocal: true });
+
+  const saved = env.fake.rows.get('user-1').data.transactions;
+  assert.ok(saved.some(tx => tx.id === 'tx-remoto'));
+  assert.ok(saved.some(tx => tx.description === 'Somente local'));
 });
 
 test('pull normaliza coleções e atualiza a interface', async () => {

@@ -2,6 +2,17 @@
 
 Este arquivo registra as mudanças relevantes de cada versão do FinanZen.
 
+## 1.6.3 — 20/10/2026
+
+### Proteção contra perda de dados
+
+- A sincronização agora combina registros locais e da nuvem em vez de substituir toda a base automaticamente.
+- Exclusões passam a ser registradas para impedir que itens removidos reapareçam durante o merge.
+- A geração de recorrências agora ocorre somente depois da primeira comparação com a nuvem.
+- Criados pontos de recuperação automáticos antes de sincronizar, importar ou restaurar dados.
+- Adicionada a área **Recuperação de dados**, com criação, download, restauração e exclusão de cópias.
+- O schema do Supabase agora mantém as 30 versões anteriores de cada usuário.
+
 ## 1.6.2 — 20/10/2026
 
 ### Central de configurações

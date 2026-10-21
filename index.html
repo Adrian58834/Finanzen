@@ -15,7 +15,7 @@
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
 
   <!-- Estilos da Aplicação -->
-  <link rel="stylesheet" href="css/style.css?v=1.6.2">
+  <link rel="stylesheet" href="css/style.css?v=1.6.3">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest">
@@ -672,6 +672,11 @@
                   <span class="settings-nav-copy"><strong>Resumo dos dados</strong><small>Itens salvos e armazenamento</small></span>
                   <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
                 </button>
+                <button type="button" data-settings-target="settings-recovery" aria-controls="settings-recovery">
+                  <span class="settings-nav-icon"><i class="ri-history-line"></i></span>
+                  <span class="settings-nav-copy"><strong>Recuperação de dados</strong><small>Cópias automáticas e restauração</small></span>
+                  <i class="ri-arrow-right-s-line settings-nav-arrow" aria-hidden="true"></i>
+                </button>
                 <button type="button" data-settings-target="settings-export" aria-controls="settings-export">
                   <span class="settings-nav-icon"><i class="ri-download-2-line"></i></span>
                   <span class="settings-nav-copy"><strong>Exportar backup</strong><small>Baixar cópia JSON ou planilha</small></span>
@@ -771,6 +776,30 @@
                   <div><span class="data-stat-value" id="data-stat-last-backup">Nunca</span><span class="data-stat-label">Último Backup</span></div>
                 </div>
               </div>
+            </div>
+
+            <!-- Recuperação de Dados -->
+            <div id="settings-recovery" class="section-card settings-card settings-module" hidden>
+              <div class="settings-card-head settings-card-head-action">
+                <span class="settings-card-icon"><i class="ri-history-line"></i></span>
+                <div>
+                  <h4>Recuperação de dados</h4>
+                  <p>O FinanZen guarda cópias antes de sincronizar, importar ou substituir informações.</p>
+                </div>
+                <button id="create-recovery-btn" class="btn btn-primary btn-sm" type="button">
+                  <i class="ri-save-3-line"></i> Criar cópia agora
+                </button>
+              </div>
+              <div class="recovery-safety-note">
+                <i class="ri-shield-check-line" aria-hidden="true"></i>
+                <span>As oito cópias mais recentes ficam protegidas neste navegador. Baixe uma cópia para guardá-la fora do dispositivo.</span>
+              </div>
+              <div class="settings-actions">
+                <button id="load-cloud-history-btn" class="btn btn-secondary btn-sm" type="button">
+                  <i class="ri-cloud-line"></i> Buscar histórico da nuvem
+                </button>
+              </div>
+              <div id="recovery-list" class="recovery-list" aria-live="polite"></div>
             </div>
 
             <!-- Exportar -->
@@ -1424,13 +1453,13 @@
   <div id="period-selector-menu" class="period-selector-menu" role="listbox" aria-label="Períodos disponíveis"></div>
 
   <!-- Scripts do FinanZen -->
-  <script src="js/state.js?v=1.6.2"></script>
-  <script src="js/charts.js?v=1.6.2"></script>
-  <script src="js/app.js?v=1.6.2"></script>
-  <script src="js/sync-config.js?v=1.6.2"></script>
+  <script src="js/state.js?v=1.6.3"></script>
+  <script src="js/charts.js?v=1.6.3"></script>
+  <script src="js/app.js?v=1.6.3"></script>
+  <script src="js/sync-config.js?v=1.6.3"></script>
   <script src="js/vendor/supabase.min.js"></script>
-  <script src="js/sync.js?v=1.6.2"></script>
-  <script src="js/open-finance.js?v=1.6.2"></script>
+  <script src="js/sync.js?v=1.6.3"></script>
+  <script src="js/open-finance.js?v=1.6.3"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

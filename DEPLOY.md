@@ -136,8 +136,11 @@ independente.
 3. Abra o arquivo `supabase/schema.sql` do projeto, **copie todo o conteúdo** e
    cole na área do editor.
 4. Clique em **Run** (ou Ctrl+Enter). Deve aparecer **Success. No rows returned**.
-5. Pronto: a tabela `finanzen_data`, o gatilho de data e as regras de segurança
-   (RLS) foram criados.
+5. Pronto: a tabela `finanzen_data`, o histórico `finanzen_data_history`, os
+   gatilhos de proteção e as regras de segurança (RLS) foram criados.
+
+> Em projetos já existentes, execute novamente o arquivo completo ao atualizar
+> para a versão 1.6.3. O script preserva os dados atuais e adiciona o histórico.
 
 ### 4.3 Copiar a URL e a chave do Supabase
 1. No menu da esquerda, clique na **engrenagem (Project Settings)**.

@@ -7,6 +7,8 @@ class FinancialState {
     this.STORAGE_KEY = 'finanzen_data_v1';
     this.SETTINGS_KEY = 'finanzen_settings_v1';
     this.LAST_CHANGE_KEY = 'finanzen_last_local_change';
+    this.RECOVERY_KEY = 'finanzen_recovery_v1';
+    this.MAX_RECOVERY_SNAPSHOTS = 8;
 
     this.defaultCategories = {
       income: [
@@ -219,7 +221,86 @@ class FinancialState {
       goals,
       accounts: this.normalizeAccounts(raw.accounts),
       customCategories,
-      recurring: this.normalizeRecurring(raw.recurring)
+      recurring: this.normalizeRecurring(raw.recurring),
+      tombstones: this.normalizeTombstones(raw.tombstones)
+    };
+  }
+
+  emptyTombstones() {
+    return {
+      transactions: {},
+      budgets: {},
+      goals: {},
+      accounts: {},
+      customCategories: {},
+      recurring: {}
+    };
+  }
+
+  normalizeTombstones(raw) {
+    const result = this.emptyTombstones();
+    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    Object.keys(result).forEach(collection => {
+      const entries = source[collection];
+      if (!entries || typeof entries !== 'object' || Array.isArray(entries)) return;
+      Object.entries(entries).forEach(([id, timestamp]) => {
+        if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return;
+        const time = Number(timestamp);
+        if (Number.isFinite(time) && time > 0) result[collection][id] = time;
+      });
+    });
+    return result;
+  }
+
+  markDeleted(collection, id) {
+    if (!id || !this.emptyTombstones()[collection]) return;
+    if (!this.data.tombstones) this.data.tombstones = this.emptyTombstones();
+    this.data.tombstones[collection][String(id)] = Date.now();
+  }
+
+  clearDeleted(collection, id) {
+    if (this.data.tombstones && this.data.tombstones[collection]) {
+      delete this.data.tombstones[collection][String(id)];
+    }
+  }
+
+  mergeData(first, second, preferSecond = true) {
+    const left = this.normalizeData(first);
+    const right = this.normalizeData(second);
+    if (!left) return right;
+    if (!right) return left;
+
+    const tombstones = this.emptyTombstones();
+    Object.keys(tombstones).forEach(collection => {
+      tombstones[collection] = {
+        ...(left.tombstones[collection] || {}),
+        ...(right.tombstones[collection] || {})
+      };
+    });
+
+    const mergeCollection = (collection, key = 'id') => {
+      const map = new Map();
+      const preferred = preferSecond ? (right[collection] || []) : (left[collection] || []);
+      const fallback = preferSecond ? (left[collection] || []) : (right[collection] || []);
+      preferred.forEach(item => {
+        const id = item && item[key];
+        if (id) map.set(String(id), item);
+      });
+      fallback.forEach(item => {
+        const id = item && item[key];
+        if (id && !map.has(String(id))) map.set(String(id), item);
+      });
+      return [...map.values()].filter(item => !tombstones[collection][String(item[key])]);
+    };
+
+    return {
+      transactions: mergeCollection('transactions'),
+      budgets: mergeCollection('budgets'),
+      goals: mergeCollection('goals'),
+      accounts: mergeCollection('accounts'),
+      customCategories: mergeCollection('customCategories'),
+      recurring: mergeCollection('recurring'),
+      tombstones
     };
   }
 
@@ -399,7 +480,8 @@ class FinancialState {
       goals: seedGoals,
       accounts: this.cloneDefaultAccounts(),
       customCategories: [],
-      recurring: []
+      recurring: [],
+      tombstones: this.emptyTombstones()
     };
 
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(initialData));
@@ -550,6 +632,7 @@ class FinancialState {
       newTx.recurringId = tx.recurringId || null;
     }
 
+    this.clearDeleted('transactions', newTx.id);
     this.data.transactions.unshift(newTx);
     if (options.save !== false) this.saveData();
     return newTx;
@@ -838,6 +921,7 @@ class FinancialState {
       }
 
       this.data.transactions[index] = merged;
+      this.clearDeleted('transactions', id);
       this.saveData();
       return this.data.transactions[index];
     }
@@ -845,6 +929,7 @@ class FinancialState {
   }
 
   deleteTransaction(id) {
+    this.markDeleted('transactions', id);
     this.data.transactions = this.data.transactions.filter(t => t.id !== id);
     this.saveData();
   }
@@ -858,17 +943,23 @@ class FinancialState {
     const existing = this.data.budgets.find(b => b.categoryId === categoryId);
     if (existing) {
       existing.monthlyLimit = parseFloat(limit) || 0;
+      this.clearDeleted('budgets', existing.id);
     } else {
-      this.data.budgets.push({
+      const budget = {
         id: 'bdg_' + Date.now(),
         categoryId,
         monthlyLimit: parseFloat(limit) || 0
-      });
+      };
+      this.clearDeleted('budgets', budget.id);
+      this.data.budgets.push(budget);
     }
     this.saveData();
   }
 
   deleteBudget(categoryId) {
+    this.data.budgets
+      .filter(b => b.categoryId === categoryId)
+      .forEach(b => this.markDeleted('budgets', b.id));
     this.data.budgets = this.data.budgets.filter(b => b.categoryId !== categoryId);
     this.saveData();
   }
@@ -883,6 +974,7 @@ class FinancialState {
       deadline: this.safeDate(goal.deadline, ''),
       icon: this.safeIcon(goal.icon, 'ri-money-dollar-circle-line')
     };
+    this.clearDeleted('goals', newGoal.id);
     this.data.goals.push(newGoal);
     this.saveData();
     return newGoal;
@@ -896,6 +988,7 @@ class FinancialState {
       if (fields.currentAmount !== undefined) goal.currentAmount = this.safeAmount(fields.currentAmount, 0);
       if (fields.deadline !== undefined) goal.deadline = this.safeDate(fields.deadline, '');
       if (fields.icon !== undefined) goal.icon = this.safeIcon(fields.icon, goal.icon);
+      this.clearDeleted('goals', id);
       this.saveData();
       return goal;
     }
@@ -913,6 +1006,7 @@ class FinancialState {
   }
 
   deleteGoal(id) {
+    this.markDeleted('goals', id);
     this.data.goals = this.data.goals.filter(g => g.id !== id);
     this.saveData();
   }
@@ -953,6 +1047,7 @@ class FinancialState {
       type: type === 'income' ? 'income' : 'expense'
     };
     if (!newCat.name) return null;
+    this.clearDeleted('customCategories', newCat.id);
     this.data.customCategories.push(newCat);
     this.saveData();
     return newCat;
@@ -964,6 +1059,7 @@ class FinancialState {
     if (fields.name !== undefined) cat.name = this.safeText(fields.name, cat.name, 80);
     if (fields.color !== undefined) cat.color = this.safeColor(fields.color, cat.color);
     if (fields.icon !== undefined) cat.icon = this.safeIcon(fields.icon, cat.icon);
+    this.clearDeleted('customCategories', id);
     this.saveData();
     return cat;
   }
@@ -977,7 +1073,11 @@ class FinancialState {
     this.data.transactions.forEach(t => {
       if (t.category === id) t.category = fallbackId;
     });
+    this.data.budgets
+      .filter(b => b.categoryId === id)
+      .forEach(b => this.markDeleted('budgets', b.id));
     this.data.budgets = this.data.budgets.filter(b => b.categoryId !== id);
+    this.markDeleted('customCategories', id);
     this.data.customCategories.splice(index, 1);
     this.saveData();
     return true;
@@ -1012,6 +1112,7 @@ class FinancialState {
       closingDay: this.clampDayOfMonth(fields.closingDay),
       dueDay: this.clampDayOfMonth(fields.dueDay)
     };
+    this.clearDeleted('accounts', account.id);
     this.data.accounts.push(account);
     this.saveData();
     return account;
@@ -1046,6 +1147,7 @@ class FinancialState {
     if (fields.dueDay !== undefined) {
       account.dueDay = this.clampDayOfMonth(fields.dueDay);
     }
+    this.clearDeleted('accounts', account.id);
     this.saveData();
     return account;
   }
@@ -1060,13 +1162,18 @@ class FinancialState {
     if (accounts.length <= 1) return false;
     if (!this.getAccountByName(name)) return false;
 
+    const removedAccount = this.getAccountByName(name);
+    if (removedAccount) this.markDeleted('accounts', removedAccount.id);
     this.data.accounts = accounts.filter(a => a.name !== name);
     const fallback = this.data.accounts[0].name;
     this.data.transactions = this.data.transactions.filter(t => {
       if (t.account === name) t.account = fallback;
       if (t.toAccount === name) t.toAccount = fallback;
       // Evita transferência da conta para ela mesma após o redirecionamento
-      if (t.type === 'transfer' && t.account === t.toAccount) return false;
+      if (t.type === 'transfer' && t.account === t.toAccount) {
+        this.markDeleted('transactions', t.id);
+        return false;
+      }
       return true;
     });
     this.saveData();
@@ -1594,6 +1701,7 @@ class FinancialState {
     if (!rule || !rule.nextDate) {
       base.nextDate = this.computeNextOccurrence(base, this.todayStr());
     }
+    this.clearDeleted('recurring', base.id);
     this.data.recurring.push(base);
     this.saveData();
     return base;
@@ -1612,6 +1720,7 @@ class FinancialState {
     }
 
     this.data.recurring = this.data.recurring.map(r => (r.id === id ? normalized : r));
+    this.clearDeleted('recurring', id);
     this.saveData();
     return normalized;
   }
@@ -1681,6 +1790,7 @@ class FinancialState {
     const before = this.data.recurring.length;
     this.data.recurring = this.data.recurring.filter(r => r.id !== id);
     if (this.data.recurring.length !== before) {
+      this.markDeleted('recurring', id);
       this.saveData();
       return true;
     }
@@ -1934,6 +2044,96 @@ class FinancialState {
     };
   }
 
+  snapshotFingerprint(data, settings) {
+    const text = JSON.stringify({ data, settings });
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+    return String(hash >>> 0);
+  }
+
+  getRecoverySnapshots() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(this.RECOVERY_KEY) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(item => item && typeof item === 'object' && item.id && item.data && item.createdAt);
+    } catch (e) {
+      console.error('Erro ao carregar pontos de recuperação:', e);
+      return [];
+    }
+  }
+
+  createRecoverySnapshot(reason = 'Cópia de segurança automática', data = this.data, settings = this.settings, meta = {}) {
+    const normalized = this.normalizeData(data);
+    if (!normalized) return null;
+
+    const safeSettings = this.normalizeSettings(settings || {});
+    const fingerprint = this.snapshotFingerprint(normalized, safeSettings);
+    const snapshots = this.getRecoverySnapshots();
+    if (snapshots[0] && snapshots[0].fingerprint === fingerprint) return snapshots[0].id;
+
+    const requestedTime = typeof meta.createdAt === 'string' ? Date.parse(meta.createdAt) : NaN;
+    const snapshot = {
+      id: `recovery_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: Number.isFinite(requestedTime) ? new Date(requestedTime).toISOString() : new Date().toISOString(),
+      reason: this.safeText(reason, 'Cópia de segurança automática', 120),
+      source: ['local', 'cloud', 'manual', 'import', 'reset', 'sync'].includes(meta.source) ? meta.source : 'local',
+      fingerprint,
+      stats: {
+        transactions: normalized.transactions.length,
+        accounts: normalized.accounts.length,
+        goals: normalized.goals.length,
+        budgets: normalized.budgets.length
+      },
+      data: normalized,
+      settings: safeSettings
+    };
+
+    snapshots.unshift(snapshot);
+    while (snapshots.length > this.MAX_RECOVERY_SNAPSHOTS) snapshots.pop();
+
+    while (snapshots.length > 0) {
+      try {
+        localStorage.setItem(this.RECOVERY_KEY, JSON.stringify(snapshots));
+        return snapshot.id;
+      } catch (e) {
+        snapshots.pop();
+      }
+    }
+    return null;
+  }
+
+  restoreRecoverySnapshot(id) {
+    const snapshot = this.getRecoverySnapshots().find(item => item.id === id);
+    if (!snapshot) return false;
+    const normalized = this.normalizeData(snapshot.data);
+    if (!normalized) return false;
+
+    this.createRecoverySnapshot('Antes de restaurar um ponto de recuperação', this.data, this.settings, { source: 'manual' });
+    this.data = normalized;
+    this.settings = this.normalizeSettings(snapshot.settings || this.settings);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+    localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
+    this.notifyDataChanged();
+    return true;
+  }
+
+  deleteRecoverySnapshot(id) {
+    const snapshots = this.getRecoverySnapshots().filter(item => item.id !== id);
+    localStorage.setItem(this.RECOVERY_KEY, JSON.stringify(snapshots));
+    return true;
+  }
+
+  exportRecoverySnapshot(id) {
+    const snapshot = this.getRecoverySnapshots().find(item => item.id === id);
+    if (!snapshot) return false;
+    const content = encodeURIComponent(JSON.stringify(snapshot.data, null, 2));
+    const link = document.createElement('a');
+    link.setAttribute('href', `data:text/json;charset=utf-8,${content}`);
+    link.setAttribute('download', `finanzen_recuperacao_${snapshot.createdAt.slice(0, 10)}.json`);
+    link.click();
+    return true;
+  }
+
   exportJSON() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data, null, 2));
     const dlAnchorElem = document.createElement('a');
@@ -1982,6 +2182,7 @@ class FinancialState {
       const parsed = JSON.parse(jsonString);
       const normalized = this.normalizeData(parsed);
       if (normalized) {
+        this.createRecoverySnapshot('Antes de importar um backup JSON', this.data, this.settings, { source: 'import' });
         this.data = normalized;
         this.saveData();
         return true;
@@ -2095,6 +2296,7 @@ class FinancialState {
       }).filter(t => t.amount > 0);
 
       if (imported.length === 0) return false;
+      this.createRecoverySnapshot('Antes de importar uma planilha CSV', this.data, this.settings, { source: 'import' });
       this.data.transactions = imported;
       this.saveData();
       return true;
@@ -2105,6 +2307,7 @@ class FinancialState {
   }
 
   resetAllData() {
+    this.createRecoverySnapshot('Antes de restaurar os dados iniciais', this.data, this.settings, { source: 'reset' });
     this.data = this.generateSeedData();
     this.saveData();
   }
